@@ -120,7 +120,8 @@ class TestBelow:
             destination_branch_obj=main_branch,
         )
         repo = _make_repo(current_branch=current_branch, pull_requests=[pr])
-        client = _make_client(repos=[repo])
+        command_runner = TrackingCommandRunner()
+        client = _make_client(repos=[repo], command_runner=command_runner)
         worktree_path = str(tmp_path / "new-worktree")
 
         client.below(
@@ -141,7 +142,8 @@ class TestBelow:
         current_branch = MockBranch(name="feature-branch")
         pr = _make_pr(source_branch="feature-branch", destination_branch="main")
         repo = _make_repo(current_branch=current_branch, pull_requests=[pr])
-        client = _make_client(repos=[repo])
+        command_runner = TrackingCommandRunner()
+        client = _make_client(repos=[repo], command_runner=command_runner)
         worktree_path = str(tmp_path / "new-worktree")
 
         client.below(
@@ -162,7 +164,8 @@ class TestBelow:
         current_branch = MockBranch(name="feature-branch")
         pr = _make_pr(source_branch="feature-branch", destination_branch="main")
         repo = _make_repo(current_branch=current_branch, pull_requests=[pr])
-        client = _make_client(repos=[repo])
+        command_runner = TrackingCommandRunner()
+        client = _make_client(repos=[repo], command_runner=command_runner)
         worktree_path = str(tmp_path / "new-worktree")
 
         client.below(
@@ -172,10 +175,12 @@ class TestBelow:
             worktree_path=worktree_path,
         )
 
-        # Verify push was called on the new branch
-        assert len(repo.created_branches) == 1
-        new_branch = repo.created_worktrees[0][0]  # Get the branch from worktree
-        assert new_branch.push_called is True
+        # Verify git push was called via command runner
+        push_commands = [
+            cmd for cmd, cwd in command_runner.commands if "push" in cmd
+        ]
+        assert len(push_commands) == 1
+        assert push_commands[0] == ["git", "push", "-u", "origin", "prep-work"]
 
     def test_creates_pr_from_new_branch_to_original_destination(self, tmp_path) -> None:
         """below() creates a PR from new branch to original destination."""
@@ -187,7 +192,8 @@ class TestBelow:
             destination_branch_obj=main_branch,
         )
         repo = _make_repo(current_branch=current_branch, pull_requests=[pr])
-        client = _make_client(repos=[repo])
+        command_runner = TrackingCommandRunner()
+        client = _make_client(repos=[repo], command_runner=command_runner)
         worktree_path = str(tmp_path / "new-worktree")
 
         client.below(
@@ -214,7 +220,8 @@ class TestBelow:
             destination_branch_obj=main_branch,
         )
         repo = _make_repo(current_branch=current_branch, pull_requests=[pr])
-        client = _make_client(repos=[repo])
+        command_runner = TrackingCommandRunner()
+        client = _make_client(repos=[repo], command_runner=command_runner)
         worktree_path = str(tmp_path / "new-worktree")
 
         client.below(
@@ -237,7 +244,8 @@ class TestBelow:
             destination_branch_obj=main_branch,
         )
         repo = _make_repo(current_branch=current_branch, pull_requests=[pr])
-        client = _make_client(repos=[repo])
+        command_runner = TrackingCommandRunner()
+        client = _make_client(repos=[repo], command_runner=command_runner)
         worktree_path = str(tmp_path / "new-worktree")
 
         result = client.below(
@@ -271,7 +279,8 @@ class TestBelow:
             pull_requests=[pr],
             working_dir=str(current_worktree),
         )
-        client = _make_client(repos=[repo])
+        command_runner = TrackingCommandRunner()
+        client = _make_client(repos=[repo], command_runner=command_runner)
 
         client.below(
             repo=repo,
@@ -299,7 +308,8 @@ class TestBelow:
             pull_requests=[pr],
             working_dir=str(current_worktree),
         )
-        client = _make_client(repos=[repo])
+        command_runner = TrackingCommandRunner()
+        client = _make_client(repos=[repo], command_runner=command_runner)
 
         with pytest.raises(ValueError, match="Cannot copy '.env': file does not exist"):
             client.below(
@@ -663,7 +673,9 @@ class TestBelowDirenv:
             run_direnv=False,
         )
 
-        assert command_runner.commands == []
+        # Should not have direnv command (but will have git commands)
+        direnv_commands = [cmd for cmd, _ in command_runner.commands if "direnv" in cmd]
+        assert direnv_commands == []
 
     def test_prints_warning_when_direnv_not_found(self, tmp_path) -> None:
         """below() prints a warning when 'direnv' command is not found."""

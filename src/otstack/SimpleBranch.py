@@ -43,5 +43,5 @@ class SimpleBranch(Branch):
 
     def get_working_dir(self) -> str:
         raise NotImplementedError(
-            "SimpleBranch does not support get_working_dir. Use LocalBranch for local git operations."
+            "SimpleBranch does not support get_working_dir."
         )
