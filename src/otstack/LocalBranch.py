@@ -1,6 +1,6 @@
 import os
-from dataclasses import dataclass, field
 from contextlib import contextmanager
+from dataclasses import dataclass, field
 from typing import Iterator
 
 from git import Repo

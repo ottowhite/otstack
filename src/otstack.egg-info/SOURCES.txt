@@ -16,8 +16,10 @@ src/otstack/Repository.py
 src/otstack/SimpleBranch.py
 src/otstack/SubprocessCommandRunner.py
 src/otstack/__init__.py
+src/otstack/main.py
 src/otstack.egg-info/PKG-INFO
 src/otstack.egg-info/SOURCES.txt
 src/otstack.egg-info/dependency_links.txt
+src/otstack.egg-info/entry_points.txt
 src/otstack.egg-info/requires.txt
 src/otstack.egg-info/top_level.txt

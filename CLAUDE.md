@@ -1,13 +1,19 @@
+# OtStack Development Guide
+
 - Always keep this CLAUDE.md up to date as you make changes
 - Perform atomic git commits with standard git tags and descriptions as you work, and always push directly after committing
 
-## Coding Practices
+## Project Overview
+
+OtStack (`ots`) is a CLI tool for managing stacked pull requests on GitHub. It helps developers work with chains of dependent PRs by providing commands to visualize PR trees, sync branches, and insert new PRs into existing stacks.
+
+## Architecture
 
 ### File Organization
 - Each class should be in its own file named exactly the same as the class (e.g., `OtStackClient` class in `OtStackClient.py`)
 - Use Protocol classes for interfaces that need to be mocked in tests
 - Concrete implementations should be prefixed with the library/implementation name (e.g., `PyGitHubClient` for PyGithub implementation)
-- Never maintain `__init__.py` exports or `__all__` lists - this is an internal project and we are the only consumers, so we don't care about breaking compatibility. Less to keep in sync is better.
+- Never maintain `__init__.py` exports or `__all__` lists - this is an internal project and we are the only consumers, so we don't care about breaking compatibility
 
 ### Protocols and Interfaces
 - We use Protocols extensively to completely mock out external interactions (like GitHub) for testing, and to define exact interfaces without coupling to implementation details
@@ -16,6 +22,15 @@
 - For data-holding protocols intended for dataclass implementations, use attribute annotations (e.g., `name: str`) rather than `@property` decorators
 - Concrete implementations can use dataclasses for simple data-holding classes that implement protocols
 - All protocol implementations should explicitly inherit from the protocol definition for clarity (e.g., `class PyGitHubClient(GitHubClient):`)
+
+### Key Classes
+- `OtStackClient` - Main orchestration client, coordinates all operations
+- `GitHubClient` (Protocol) / `PyGitHubClient` - GitHub API interactions
+- `Repository` (Protocol) / `PyGitHubRepository` - Git repository operations
+- `PullRequest` (Protocol) / `PyGitHubPullRequest` - PR data and operations
+- `Branch` (Protocol) / `LocalBranch`, `SimpleBranch` - Branch abstractions
+- `GitRepoDetector` - Detects repository from git remotes
+- `CommandRunner` (Protocol) / `SubprocessCommandRunner` - Shell command execution
 
 ### Type Checking
 - Never use `if TYPE_CHECKING:` guards - we always type check, so these are unnecessary indirection
@@ -27,6 +42,16 @@
 - PyGitHubRepository implements all Repository protocol methods for worktree compatibility
 
 ## Commands
+
+### tree
+Show PR dependency tree for a repository. Visualizes which PRs depend on other PRs.
+
+**Usage:** `ots tree [--repo owner/repo] [--path /path/to/repo]`
+
+### sync
+Sync all local PRs by pulling the destination branch and merging into the source branch.
+
+**Usage:** `ots sync [--repo owner/repo] [--path /path/to/repo]`
 
 ### below
 Insert a new PR "below" the current PR in a stack. Creates a new branch and PR that becomes the new base for the current PR, with a git worktree for parallel development.
@@ -49,12 +74,6 @@ Insert a new PR "below" the current PR in a stack. Creates a new branch and PR t
 When `--dry-run` is passed, the command performs all validation checks (which are read-only and safe) and then prints what would happen instead of executing. The output includes:
 - Current state (branch and PR info)
 - Numbered list of actions that would be performed (create branch, worktree, push, create PR, retarget, copy files, run direnv)
-
-### tree
-Show PR dependency tree for a repository.
-
-### sync
-Sync all local PRs by pulling destination and merging into source.
 
 ## Nix Flake
 
@@ -79,4 +98,26 @@ The project provides a Nix flake for installation via URL from other flakes.
 
 **CLI binary:** The installed binary is named `ots`. It auto-detects the repository from the current directory's git remote.
 
-**Development:** Use `nix-shell` (not `nix develop`) which uses the existing `shell.nix`.
+## Development
+
+**Setup:**
+```bash
+nix-shell  # Enter development environment
+```
+
+**Run tests:**
+```bash
+make test      # or: uv run pytest
+```
+
+**Lint and type check:**
+```bash
+make check     # runs both lint and typecheck
+make lint      # ruff only
+make typecheck # ty only
+```
+
+**Run locally during development:**
+```bash
+uv run ots tree
+```

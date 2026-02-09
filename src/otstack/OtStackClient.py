@@ -6,7 +6,6 @@ from pathlib import Path
 from typing import TextIO
 
 from dotenv import load_dotenv
-
 from git import InvalidGitRepositoryError, Repo
 
 from .BelowDryRunResult import BelowDryRunResult
@@ -304,7 +303,7 @@ class OtStackClient:
 
         Returns True if all syncs succeeded, False if any merge would conflict.
         """
-        self._output.write(f"Fetching open pull requests...\n")
+        self._output.write("Fetching open pull requests...\n")
         prs = repo.get_open_pull_requests()
         if not prs:
             self._output.write("No open pull requests found.\n")
@@ -351,7 +350,7 @@ class OtStackClient:
                         if not self._handle_merge_conflict(pr):
                             return False
                     else:
-                        self._output.write(f"  Merged and pushed.\n")
+                        self._output.write("  Merged and pushed.\n")
                 else:
                     self._output.write(
                         f"Skipping '{pr.source_branch.name}' (not checked out locally)\n"
@@ -396,22 +395,22 @@ class OtStackClient:
 
         # Check if user aborted (non-zero exit)
         if result.returncode != 0:
-            self._output.write(f"\n  Sync aborted by user.\n")
+            self._output.write("\n  Sync aborted by user.\n")
             pr.source_branch.abort_merge()
             return False
 
         # Check if merge was resolved
         if pr.source_branch.has_merge_conflicts():
             self._output.write(
-                f"\n  Merge conflicts still present. Aborting sync.\n"
+                "\n  Merge conflicts still present. Aborting sync.\n"
             )
             pr.source_branch.abort_merge()
             return False
 
         # Push the resolved merge
-        self._output.write(f"  Conflict resolved. Pushing...\n")
+        self._output.write("  Conflict resolved. Pushing...\n")
         pr.source_branch.push()
-        self._output.write(f"  Merged and pushed.\n")
+        self._output.write("  Merged and pushed.\n")
         return True
 
     def below(
