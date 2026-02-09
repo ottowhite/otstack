@@ -1,5 +1,6 @@
 import io
 
+from otstack.AboveDryRunResult import AboveDryRunResult
 from otstack.AboveResult import AboveResult
 from otstack.OtStackClient import OtStackClient
 
@@ -30,6 +31,113 @@ class TestAboveResult:
         assert result.new_pr.source_branch.name == "feature-b"
         assert result.current_pr.source_branch.name == "feature-a"
         assert result.worktree_path == "/tmp/new-worktree"
+
+
+class TestAboveDryRunResult:
+    def test_holds_all_planned_action_information(self) -> None:
+        """AboveDryRunResult holds all information about planned actions."""
+        current_pr = _make_pr(
+            source_branch="feature-a",
+            destination_branch="main",
+            title="Feature A",
+        )
+
+        result = AboveDryRunResult(
+            current_branch_name="feature-a",
+            current_pr=current_pr,
+            new_branch_name="feature-b",
+            pr_title="Feature B",
+            worktree_path="/tmp/new-worktree",
+            copy_files=[".env"],
+            run_direnv=True,
+        )
+
+        assert result.current_branch_name == "feature-a"
+        assert result.current_pr.title == "Feature A"
+        assert result.new_branch_name == "feature-b"
+        assert result.pr_title == "Feature B"
+        assert result.worktree_path == "/tmp/new-worktree"
+        assert result.copy_files == [".env"]
+        assert result.run_direnv is True
+
+    def test_format_output_includes_dry_run_header(self) -> None:
+        """AboveDryRunResult.format_output() includes dry-run header."""
+        current_pr = _make_pr(
+            source_branch="feature-a",
+            destination_branch="main",
+            title="Feature A",
+        )
+
+        result = AboveDryRunResult(
+            current_branch_name="feature-a",
+            current_pr=current_pr,
+            new_branch_name="feature-b",
+            pr_title="Feature B",
+            worktree_path="/tmp/new-worktree",
+            copy_files=None,
+            run_direnv=False,
+        )
+
+        output = result.format_output()
+        assert "Dry run - no changes will be made" in output
+
+    def test_format_output_includes_current_state(self) -> None:
+        """AboveDryRunResult.format_output() includes current state section."""
+        current_pr = _make_pr(
+            source_branch="feature-a",
+            destination_branch="main",
+            title="Feature A",
+        )
+
+        result = AboveDryRunResult(
+            current_branch_name="feature-a",
+            current_pr=current_pr,
+            new_branch_name="feature-b",
+            pr_title="Feature B",
+            worktree_path="/tmp/new-worktree",
+            copy_files=None,
+            run_direnv=False,
+        )
+
+        output = result.format_output()
+        assert "Current state:" in output
+        assert "Branch: feature-a" in output
+        assert '"Feature A"' in output
+        assert "main" in output
+
+    def test_format_output_includes_planned_actions(self) -> None:
+        """AboveDryRunResult.format_output() includes all planned actions."""
+        current_pr = _make_pr(
+            source_branch="feature-a",
+            destination_branch="main",
+            title="Feature A",
+        )
+
+        result = AboveDryRunResult(
+            current_branch_name="feature-a",
+            current_pr=current_pr,
+            new_branch_name="feature-b",
+            pr_title="Feature B",
+            worktree_path="/tmp/new-worktree",
+            copy_files=[".env", ".env.local"],
+            run_direnv=True,
+        )
+
+        output = result.format_output()
+        assert "Actions that would be performed:" in output
+        # Key difference from below: branch is created from current, not destination
+        assert "Create branch 'feature-b' from 'feature-a'" in output
+        assert "Create worktree at /tmp/new-worktree" in output
+        assert "Push 'feature-b' to origin" in output
+        # Key difference: PR targets current branch, not destination
+        assert "Create PR: 'feature-b' -> 'feature-a'" in output
+        assert '"Feature B"' in output
+        # Key difference: NO retargeting step
+        assert "Retarget" not in output
+        assert "Copy files:" in output
+        assert ".env" in output
+        assert ".env.local" in output
+        assert "direnv allow" in output
 
 
 # Test helpers
