@@ -115,9 +115,3 @@ class LocalBranch(Branch):
                 return True
             except GitCommandError:
                 return False
-
-    def create_empty_commit(self, message: str) -> None:
-        """Create an empty commit on this branch with the given message."""
-        with _clean_git_env():
-            self._repo.git.checkout(self.name)
-            self._repo.git.commit("--allow-empty", "-m", message)

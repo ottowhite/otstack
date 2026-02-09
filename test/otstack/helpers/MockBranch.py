@@ -35,6 +35,3 @@ class MockBranch(Branch):
 
     def get_working_dir(self) -> str:
         return "/mock/working/dir"
-
-    def create_empty_commit(self, message: str) -> None:
-        pass

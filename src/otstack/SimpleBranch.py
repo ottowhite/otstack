@@ -45,8 +45,3 @@ class SimpleBranch(Branch):
         raise NotImplementedError(
             "SimpleBranch does not support get_working_dir."
         )
-
-    def create_empty_commit(self, message: str) -> None:
-        raise NotImplementedError(
-            "SimpleBranch does not support create_empty_commit."
-        )
