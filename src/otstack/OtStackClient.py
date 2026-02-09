@@ -592,6 +592,17 @@ class OtStackClient:
         # Get the current PR
         current_pr = current_pr_list[0]
 
+        if dry_run:
+            return AboveDryRunResult(
+                current_branch_name=current_branch.name,
+                current_pr=current_pr,
+                new_branch_name=new_branch_name,
+                pr_title=pr_title,
+                worktree_path=worktree_path,
+                copy_files=copy_files,
+                run_direnv=run_direnv,
+            )
+
         # Create new branch from current branch (key difference from below)
         new_branch = repo.create_branch(new_branch_name, current_branch)
 

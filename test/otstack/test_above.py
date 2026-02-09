@@ -506,6 +506,176 @@ class TestAboveDirenv:
         assert "Warning: 'direnv' command not found" in output_text
 
 
+class TestAboveDryRun:
+    def test_dry_run_does_not_create_branch(self, tmp_path) -> None:
+        """above() with dry_run=True does not create a branch."""
+        current_branch = MockBranch(name="feature-a")
+        pr = _make_pr(source_branch="feature-a", destination_branch="main")
+        repo = _make_repo(current_branch=current_branch, pull_requests=[pr])
+        client = _make_client(repos=[repo])
+        worktree_path = str(tmp_path / "new-worktree")
+
+        client.above(
+            repo=repo,
+            new_branch_name="feature-b",
+            pr_title="Feature B",
+            worktree_path=worktree_path,
+            dry_run=True,
+        )
+
+        assert len(repo.created_branches) == 0
+
+    def test_dry_run_does_not_create_worktree(self, tmp_path) -> None:
+        """above() with dry_run=True does not create a worktree."""
+        current_branch = MockBranch(name="feature-a")
+        pr = _make_pr(source_branch="feature-a", destination_branch="main")
+        repo = _make_repo(current_branch=current_branch, pull_requests=[pr])
+        client = _make_client(repos=[repo])
+        worktree_path = str(tmp_path / "new-worktree")
+
+        client.above(
+            repo=repo,
+            new_branch_name="feature-b",
+            pr_title="Feature B",
+            worktree_path=worktree_path,
+            dry_run=True,
+        )
+
+        assert len(repo.created_worktrees) == 0
+
+    def test_dry_run_does_not_create_pr(self, tmp_path) -> None:
+        """above() with dry_run=True does not create a PR."""
+        current_branch = MockBranch(name="feature-a")
+        pr = _make_pr(source_branch="feature-a", destination_branch="main")
+        repo = _make_repo(current_branch=current_branch, pull_requests=[pr])
+        client = _make_client(repos=[repo])
+        worktree_path = str(tmp_path / "new-worktree")
+
+        client.above(
+            repo=repo,
+            new_branch_name="feature-b",
+            pr_title="Feature B",
+            worktree_path=worktree_path,
+            dry_run=True,
+        )
+
+        assert len(repo.created_prs) == 0
+
+    def test_dry_run_does_not_copy_files(self, tmp_path) -> None:
+        """above() with dry_run=True does not copy files."""
+        current_worktree = tmp_path / "current"
+        current_worktree.mkdir()
+        env_file = current_worktree / ".env"
+        env_file.write_text("SECRET=abc123")
+
+        new_worktree = tmp_path / "new-worktree"
+
+        current_branch = MockBranch(name="feature-a")
+        pr = _make_pr(source_branch="feature-a", destination_branch="main")
+        repo = _make_repo(
+            current_branch=current_branch,
+            pull_requests=[pr],
+            working_dir=str(current_worktree),
+        )
+        client = _make_client(repos=[repo])
+
+        client.above(
+            repo=repo,
+            new_branch_name="feature-b",
+            pr_title="Feature B",
+            worktree_path=str(new_worktree),
+            copy_files=[".env"],
+            dry_run=True,
+        )
+
+        # Worktree directory should not exist (no files copied)
+        assert not new_worktree.exists()
+
+    def test_dry_run_returns_dry_run_result(self, tmp_path) -> None:
+        """above() with dry_run=True returns an AboveDryRunResult."""
+        current_branch = MockBranch(name="feature-a")
+        pr = _make_pr(source_branch="feature-a", destination_branch="main")
+        repo = _make_repo(current_branch=current_branch, pull_requests=[pr])
+        client = _make_client(repos=[repo])
+        worktree_path = str(tmp_path / "new-worktree")
+
+        result = client.above(
+            repo=repo,
+            new_branch_name="feature-b",
+            pr_title="Feature B",
+            worktree_path=worktree_path,
+            dry_run=True,
+        )
+
+        assert isinstance(result, AboveDryRunResult)
+
+    def test_dry_run_result_contains_planned_actions(self, tmp_path) -> None:
+        """AboveDryRunResult contains all information about planned actions."""
+        current_branch = MockBranch(name="feature-a")
+        pr = _make_pr(
+            source_branch="feature-a",
+            destination_branch="main",
+            title="Feature A",
+        )
+        repo = _make_repo(current_branch=current_branch, pull_requests=[pr])
+        client = _make_client(repos=[repo])
+        worktree_path = str(tmp_path / "new-worktree")
+
+        result = client.above(
+            repo=repo,
+            new_branch_name="feature-b",
+            pr_title="Feature B",
+            worktree_path=worktree_path,
+            copy_files=[".env", ".env.local"],
+            run_direnv=True,
+            dry_run=True,
+        )
+
+        assert isinstance(result, AboveDryRunResult)
+        assert result.current_branch_name == "feature-a"
+        assert result.current_pr.title == "Feature A"
+        assert result.new_branch_name == "feature-b"
+        assert result.pr_title == "Feature B"
+        assert result.worktree_path == worktree_path
+        assert result.copy_files == [".env", ".env.local"]
+        assert result.run_direnv is True
+
+    def test_dry_run_still_validates_detached_head(self) -> None:
+        """dry_run=True still raises error when in detached HEAD state."""
+        repo = _make_repo(current_branch=None)
+        client = _make_client(repos=[repo])
+
+        with pytest.raises(ValueError, match="You are in detached HEAD state"):
+            client.above(
+                repo=repo,
+                new_branch_name="feature-b",
+                pr_title="Feature B",
+                worktree_path="/tmp/project-feature-b",
+                dry_run=True,
+            )
+
+    def test_dry_run_still_validates_branch_exists(self) -> None:
+        """dry_run=True still raises error when branch already exists."""
+        current_branch = MockBranch(name="feature-a")
+        pr = _make_pr(source_branch="feature-a", destination_branch="main")
+        existing_branch = MockBranch(name="feature-b")
+        repo = _make_repo(
+            current_branch=current_branch,
+            pull_requests=[pr],
+            branches=[existing_branch],
+        )
+        client = _make_client(repos=[repo])
+
+        with pytest.raises(ValueError, match="Branch 'feature-b' already exists"):
+            client.above(
+                repo=repo,
+                new_branch_name="feature-b",
+                pr_title="Feature B",
+                worktree_path="/tmp/project-feature-b",
+                dry_run=True,
+            )
+
+
 # Test helpers
 
 
