@@ -3,6 +3,25 @@ import argparse
 from otstack.AboveDryRunResult import AboveDryRunResult
 from otstack.BelowDryRunResult import BelowDryRunResult
 from otstack.OtStackClient import OtStackClient
+from otstack.Repository import Repository
+
+
+def _get_repo(
+    client: OtStackClient, repo_arg: str | None, local_path: str
+) -> Repository:
+    """Get repository from argument or detect from git remote."""
+    if repo_arg is not None:
+        return client.get_repo(repo_arg, local_path)
+
+    detected_repo = client.detect_repo(local_path)
+    if detected_repo is None:
+        print(
+            "Could not detect repository. Please specify --repo or run "
+            "from within a git repository with a GitHub remote."
+        )
+        raise SystemExit(-1)
+    print(f"Detected repository: {detected_repo.full_name}")
+    return detected_repo
 
 
 def main() -> None:
@@ -16,7 +35,7 @@ def main() -> None:
         "--repo",
         type=str,
         required=False,
-        help="Repository name (e.g., 'repo-name'). If not provided, detects from git remote.",
+        help="Repository name. If not provided, detects from git remote.",
     )
     tree_parser.add_argument(
         "--path",
@@ -30,7 +49,7 @@ def main() -> None:
         "--repo",
         type=str,
         required=False,
-        help="Repository name (e.g., 'repo-name'). If not provided, detects from git remote.",
+        help="Repository name. If not provided, detects from git remote.",
     )
     sync_parser.add_argument(
         "--path",
@@ -87,7 +106,7 @@ def main() -> None:
         "-c",
         action="append",
         dest="copy_files",
-        help="Copy a file from current worktree to new worktree (can be specified multiple times)",
+        help="Copy a file from current to new worktree (can be repeated)",
     )
     below_parser.add_argument(
         "--dry-run",
@@ -161,17 +180,7 @@ def main() -> None:
     try:
         local_path = getattr(args, "path", None) or "."
         with OtStackClient() as client:
-            if args.repo is None:
-                repo = client.detect_repo(local_path)
-                if repo is None:
-                    print(
-                        "Could not detect repository. Please specify --repo or run "
-                        "from within a git repository with a GitHub remote."
-                    )
-                    exit(-1)
-                print(f"Detected repository: {repo.full_name}")
-            else:
-                repo = client.get_repo(args.repo, local_path)
+            repo = _get_repo(client, args.repo, local_path)
 
             if args.command == "tree":
                 print(f"Repository: {repo.full_name}\n")
@@ -196,7 +205,8 @@ def main() -> None:
                     print(result.format_output())
                 else:
                     print(
-                        f"\nSuccessfully inserted '{args.branch}' below your current PR!"
+                        f"\nSuccessfully inserted '{args.branch}' "
+                        "below your current PR!"
                     )
                     print(f"\nNew PR: {result.new_pr.url}")
                     print(f"Original PR (retargeted): {result.original_pr.url}")

@@ -372,6 +372,7 @@ class TestAbove:
         )
 
         # Verify result contains all expected information
+        assert isinstance(result, AboveResult)
         assert result.new_branch.name == "feature-b"
         assert result.new_pr.title == "Feature B"
         assert result.current_pr == pr
@@ -700,16 +701,18 @@ def _make_repo(
     name: str = "test-repo",
 ) -> MockRepository:
     """Create a MockRepository with configurable current branch."""
+    prs: list[MockPullRequest] = pull_requests or []
+    branch_list: list[MockBranch] = branches or []
     return MockRepository(
         name=name,
         full_name=f"test-user/{name}",
         description="Test repository",
         private=False,
         url=f"https://github.com/test-user/{name}",
-        _pull_requests=pull_requests or [],
+        _pull_requests=prs,
         _current_branch=current_branch,
         _has_uncommitted_changes=has_uncommitted_changes,
-        _branches=branches or [],
+        _branches=branch_list,
         _working_dir=working_dir,
     )
 

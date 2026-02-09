@@ -30,6 +30,6 @@ class PullRequest(Protocol):
 
         Precondition: is_local() must return True.
         Raises ValueError if is_local() returns False.
-        Returns True if sync succeeded, False if merge would conflict (no push performed).
+        Returns True if sync succeeded, False if merge would conflict (no push).
         """
         ...

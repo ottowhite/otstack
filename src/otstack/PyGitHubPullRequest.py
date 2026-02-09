@@ -37,10 +37,12 @@ class PyGitHubPullRequest(PullRequest):
         Sync the PR by pulling destination, merging into source, and pushing source.
 
         Raises ValueError if is_local() returns False.
-        Returns True if sync succeeded, False if merge would conflict (no push performed).
+        Returns True if sync succeeded, False if merge would conflict (no push).
         """
         if not self.is_local():
-            raise ValueError("sync() requires is_local() to return True, but it returned False")
+            raise ValueError(
+                "sync() requires is_local() to return True, but it returned False"
+            )
         self.destination_branch.pull()
         if not self.source_branch.merge(self.destination_branch):
             return False

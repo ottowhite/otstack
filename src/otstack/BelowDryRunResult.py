@@ -26,11 +26,20 @@ class BelowDryRunResult:
             f'  PR: "{self.current_pr.title}" -> {self.original_destination_name}',
             "",
             "Actions that would be performed:",
-            f"  1. Create branch '{self.new_branch_name}' (same as '{self.original_destination_name}')",
+            (
+                f"  1. Create branch '{self.new_branch_name}' "
+                f"(same as '{self.original_destination_name}')"
+            ),
             f"  2. Create worktree at {self.worktree_path}",
             f"  3. Push '{self.new_branch_name}' to origin",
-            f'  4. Create PR: \'{self.new_branch_name}\' -> \'{self.original_destination_name}\' with title "{self.pr_title}"',
-            f"  5. Retarget PR: '{self.current_branch_name}' -> '{self.new_branch_name}' (was -> '{self.original_destination_name}')",
+            (
+                f"  4. Create PR: '{self.new_branch_name}' -> "
+                f"'{self.original_destination_name}' with title \"{self.pr_title}\""
+            ),
+            (
+                f"  5. Retarget PR: '{self.current_branch_name}' -> "
+                f"'{self.new_branch_name}' (was -> '{self.original_destination_name}')"
+            ),
         ]
 
         step = 6

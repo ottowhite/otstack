@@ -29,7 +29,7 @@ class TestRepositoryGetLocalBranches:
         assert result == [branch1, branch2]
 
     def test_mock_repository_raises_value_error_when_no_git_repo(self) -> None:
-        """MockRepository.get_local_branches() raises ValueError when no git repo."""
+        """MockRepository raises ValueError when no git repo configured."""
         repo = _make_repo(local_branches=None)
 
         with pytest.raises(ValueError, match="No local git repository"):
@@ -38,7 +38,7 @@ class TestRepositoryGetLocalBranches:
 
 class TestPyGitHubRepositoryGetCurrentBranch:
     def test_raises_value_error_when_no_git_repo(self) -> None:
-        """PyGitHubRepository.get_current_branch() raises ValueError when _git_repo is None."""
+        """get_current_branch() raises ValueError when _git_repo is None."""
         repo = _make_pygithub_repo(git_repo=None)
 
         with pytest.raises(ValueError, match="No local git repository"):
@@ -86,7 +86,7 @@ class TestPyGitHubRepositoryGetCurrentBranch:
         worktree_path = tmp_path / "worktree-feature-1"
         main_repo.git.worktree("add", str(worktree_path), "feature-1")
 
-        # Open Repo from the worktree directory (simulating running command from worktree)
+        # Open Repo from the worktree directory (simulates running from worktree)
         worktree_repo = Repo(worktree_path)
         repo = _make_pygithub_repo(git_repo=worktree_repo)
 
@@ -99,7 +99,7 @@ class TestPyGitHubRepositoryGetCurrentBranch:
 
 class TestPyGitHubRepositoryHasUncommittedChanges:
     def test_raises_value_error_when_no_git_repo(self) -> None:
-        """PyGitHubRepository.has_uncommitted_changes() raises ValueError when _git_repo is None."""
+        """has_uncommitted_changes() raises ValueError when _git_repo is None."""
         repo = _make_pygithub_repo(git_repo=None)
 
         with pytest.raises(ValueError, match="No local git repository"):
@@ -149,7 +149,7 @@ class TestPyGitHubRepositoryHasUncommittedChanges:
 
 class TestPyGitHubRepositoryGetLocalBranches:
     def test_raises_value_error_when_no_git_repo(self) -> None:
-        """PyGitHubRepository.get_local_branches() raises ValueError when _git_repo is None."""
+        """get_local_branches() raises ValueError when _git_repo is None."""
         repo = _make_pygithub_repo(git_repo=None)
 
         with pytest.raises(ValueError, match="No local git repository"):
@@ -200,7 +200,7 @@ class TestPyGitHubRepositoryGetLocalBranches:
 
 class TestPyGitHubRepositoryCreateBranch:
     def test_raises_value_error_when_no_git_repo(self) -> None:
-        """PyGitHubRepository.create_branch() raises ValueError when _git_repo is None."""
+        """create_branch() raises ValueError when _git_repo is None."""
         repo = _make_pygithub_repo(git_repo=None)
         from_branch = MockBranch(name="master")
 
@@ -227,7 +227,7 @@ class TestPyGitHubRepositoryCreateBranch:
 
 class TestPyGitHubRepositoryCreateWorktree:
     def test_raises_value_error_when_no_git_repo(self) -> None:
-        """PyGitHubRepository.create_worktree() raises ValueError when _git_repo is None."""
+        """create_worktree() raises ValueError when _git_repo is None."""
         repo = _make_pygithub_repo(git_repo=None)
         branch = MockBranch(name="feature-1")
 
@@ -254,7 +254,7 @@ class TestPyGitHubRepositoryCreateWorktree:
 
 class TestPyGitHubRepositoryGetWorkingDir:
     def test_raises_value_error_when_no_git_repo(self) -> None:
-        """PyGitHubRepository.get_working_dir() raises ValueError when _git_repo is None."""
+        """get_working_dir() raises ValueError when _git_repo is None."""
         repo = _make_pygithub_repo(git_repo=None)
 
         with pytest.raises(ValueError, match="No local git repository"):
@@ -280,13 +280,14 @@ def _make_repo(
     local_branches: list[MockBranch] | None,
 ) -> MockRepository:
     """Create a MockRepository with specified local branches."""
+    branches: list[MockBranch] | None = local_branches
     return MockRepository(
         name="test-repo",
         full_name="test-user/test-repo",
         description="Test repository",
         private=False,
         url="https://github.com/test-user/test-repo",
-        _local_branches=local_branches,
+        _local_branches=branches,
     )
 
 

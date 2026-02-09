@@ -256,6 +256,9 @@ class TestBelow:
         )
 
         # Verify result contains all expected information
+        from otstack.BelowResult import BelowResult
+
+        assert isinstance(result, BelowResult)
         assert result.new_branch.name == "prep-work"
         assert result.new_pr.title == "Preparatory refactor"
         assert result.original_pr == pr
@@ -527,10 +530,13 @@ class TestBelowDryRun:
             dry_run=True,
         )
 
+        from otstack.BelowDryRunResult import BelowDryRunResult
+
+        assert isinstance(result, BelowDryRunResult)
         output = result.format_output()
         assert "Dry run - no changes will be made" in output
 
-    def test_dry_run_result_format_output_includes_current_state(self, tmp_path) -> None:
+    def test_dry_run_result_format_output_has_current_state(self, tmp_path) -> None:
         """BelowDryRunResult.format_output() includes current state section."""
         current_branch = MockBranch(name="feature-branch")
         main_branch = MockBranch(name="main")
@@ -552,6 +558,9 @@ class TestBelowDryRun:
             dry_run=True,
         )
 
+        from otstack.BelowDryRunResult import BelowDryRunResult
+
+        assert isinstance(result, BelowDryRunResult)
         output = result.format_output()
         assert "Current state:" in output
         assert "Branch: feature-branch" in output
@@ -584,6 +593,9 @@ class TestBelowDryRun:
             dry_run=True,
         )
 
+        from otstack.BelowDryRunResult import BelowDryRunResult
+
+        assert isinstance(result, BelowDryRunResult)
         output = result.format_output()
         assert "Actions that would be performed:" in output
         assert "Create branch 'auth-refactor'" in output
@@ -727,16 +739,18 @@ def _make_repo(
     name: str = "test-repo",
 ) -> MockRepository:
     """Create a MockRepository with configurable current branch."""
+    prs: list[MockPullRequest] = pull_requests or []
+    branch_list: list[MockBranch] = branches or []
     return MockRepository(
         name=name,
         full_name=f"test-user/{name}",
         description="Test repository",
         private=False,
         url=f"https://github.com/test-user/{name}",
-        _pull_requests=pull_requests or [],
+        _pull_requests=prs,
         _current_branch=current_branch,
         _has_uncommitted_changes=has_uncommitted_changes,
-        _branches=branches or [],
+        _branches=branch_list,
         _working_dir=working_dir,
     )
 
@@ -748,10 +762,11 @@ def _make_pr(
     destination_branch_obj: MockBranch | None = None,
 ) -> MockPullRequest:
     """Create a MockPullRequest with the given branches."""
+    dest = destination_branch_obj or MockBranch(name=destination_branch)
     return MockPullRequest(
         title=title,
         description=None,
         source_branch=MockBranch(name=source_branch),
-        destination_branch=destination_branch_obj or MockBranch(name=destination_branch),
+        destination_branch=dest,
         url="https://github.com/test-user/test-repo/pull/1",
     )

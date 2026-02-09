@@ -23,7 +23,9 @@ class MockPullRequest(PullRequest):
 
     def sync(self) -> bool:
         if not self.is_local():
-            raise ValueError("sync() requires is_local() to return True, but it returned False")
+            raise ValueError(
+                "sync() requires is_local() to return True, but it returned False"
+            )
         self.destination_branch.pull()
         if not self.source_branch.merge(self.destination_branch):
             return False

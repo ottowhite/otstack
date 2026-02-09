@@ -123,7 +123,9 @@ class PyGitHubRepository(Repository):
         # Get the main repo's currently checked out branch
         if not self._git_repo.head.is_detached:
             branches.append(
-                LocalBranch(name=self._git_repo.active_branch.name, _repo=self._git_repo)
+                LocalBranch(
+                    name=self._git_repo.active_branch.name, _repo=self._git_repo
+                )
             )
 
         # Get worktree branches
@@ -140,8 +142,7 @@ class PyGitHubRepository(Repository):
                         branch_name = branch_ref[11:]  # Remove "refs/heads/" prefix
                         # Skip if this is the main repo (already added above)
                         if current_worktree_path != str(self._git_repo.working_dir):
-                            # Open a Repo for the worktree directory so git operations
-                            # work correctly (can't checkout a branch already in a worktree)
+                            # Open Repo for worktree so git operations work correctly
                             worktree_repo = Repo(current_worktree_path)
                             branches.append(
                                 LocalBranch(name=branch_name, _repo=worktree_repo)

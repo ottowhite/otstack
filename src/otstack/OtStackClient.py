@@ -246,7 +246,7 @@ class OtStackClient:
             self._output.write(self._center_text(pr_tree.branch_name, width) + "\n")
 
     def _get_chain(self, node: PRTree) -> list[PRTree]:
-        """Get a list of nodes from this node up to the deepest descendant (single-child chains only)."""
+        """Get list of nodes from this node up to deepest single-child descendant."""
         chain = [node]
         current = node
         while current.children and len(current.children) == 1:
@@ -343,9 +343,9 @@ class OtStackClient:
             if child.pull_request is not None:
                 pr = child.pull_request
                 if pr.is_local():
-                    self._output.write(
-                        f"Syncing '{pr.source_branch.name}' <- '{pr.destination_branch.name}'...\n"
-                    )
+                    src = pr.source_branch.name
+                    dest = pr.destination_branch.name
+                    self._output.write(f"Syncing '{src}' <- '{dest}'...\n")
                     self._output.write(f"  Pulling {pr.destination_branch.name}...\n")
                     if not pr.sync():
                         # Merge has conflicts - drop user into subshell to resolve
@@ -355,7 +355,7 @@ class OtStackClient:
                         self._output.write("  Merged and pushed.\n")
                 else:
                     self._output.write(
-                        f"Skipping '{pr.source_branch.name}' (not checked out locally)\n"
+                        f"Skipping '{pr.source_branch.name}' (not local)\n"
                     )
 
             # Then recursively sync children (deeper in the tree)
@@ -449,12 +449,14 @@ class OtStackClient:
 
         if not current_pr_list:
             raise ValueError(
-                f"No open PR found for branch '{current_branch.name}'. Create a PR first."
+                f"No open PR found for branch '{current_branch.name}'. "
+                "Create a PR first."
             )
 
         if len(current_pr_list) > 1:
             raise ValueError(
-                f"Multiple open PRs found for branch '{current_branch.name}'. This is ambiguous."
+                f"Multiple open PRs found for branch '{current_branch.name}'. "
+                "This is ambiguous."
             )
 
         # Check if new branch already exists
@@ -465,7 +467,8 @@ class OtStackClient:
         # Check if worktree path already exists
         if os.path.exists(worktree_path):
             raise ValueError(
-                f"Path '{worktree_path}' already exists. Choose a different worktree path."
+                f"Path '{worktree_path}' already exists. "
+                "Choose a different worktree path."
             )
 
         # Get the current PR (we already validated there's exactly one)
@@ -492,12 +495,20 @@ class OtStackClient:
 
         # Create empty commit in worktree so GitHub allows creating a PR
         self._command_runner.run(
-            ["git", "commit", "--allow-empty", "-m", f"chore: initialize {new_branch_name}"],
+            [
+                "git",
+                "commit",
+                "--allow-empty",
+                "-m",
+                f"chore: initialize {new_branch_name}",
+            ],
             cwd=worktree_path,
         )
 
         # Push new branch from worktree
-        self._command_runner.run(["git", "push", "-u", "origin", new_branch_name], cwd=worktree_path)
+        self._command_runner.run(
+            ["git", "push", "-u", "origin", new_branch_name], cwd=worktree_path
+        )
 
         # Create PR from new branch to original destination
         new_pr = repo.create_pr(new_branch, original_destination, pr_title)

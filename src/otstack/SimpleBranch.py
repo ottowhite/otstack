@@ -15,12 +15,12 @@ class SimpleBranch(Branch):
 
     def merge(self, other_branch: Branch) -> bool:
         raise NotImplementedError(
-            "SimpleBranch does not support merge. Use LocalBranch for local git operations."
+            "SimpleBranch does not support merge. Use LocalBranch instead."
         )
 
     def pull(self) -> bool:
         raise NotImplementedError(
-            "SimpleBranch does not support pull. Use LocalBranch for local git operations."
+            "SimpleBranch does not support pull. Use LocalBranch instead."
         )
 
     def is_local(self) -> bool:
@@ -28,17 +28,17 @@ class SimpleBranch(Branch):
 
     def push(self) -> bool:
         raise NotImplementedError(
-            "SimpleBranch does not support push. Use LocalBranch for local git operations."
+            "SimpleBranch does not support push. Use LocalBranch instead."
         )
 
     def has_merge_conflicts(self) -> bool:
         raise NotImplementedError(
-            "SimpleBranch does not support has_merge_conflicts. Use LocalBranch for local git operations."
+            "SimpleBranch does not support has_merge_conflicts. Use LocalBranch."
         )
 
     def abort_merge(self) -> None:
         raise NotImplementedError(
-            "SimpleBranch does not support abort_merge. Use LocalBranch for local git operations."
+            "SimpleBranch does not support abort_merge. Use LocalBranch instead."
         )
 
     def get_working_dir(self) -> str:

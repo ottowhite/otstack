@@ -340,9 +340,8 @@ class TestTree:
         client.tree(repo)
 
         # PR title (with quotes) should be truncated to 38 chars
-        # Title with quotes: '"This is a very long PR title that definitely exceeds the width"' (64 chars)
-        # Truncated to: '"This is a very long PR title that ...' (38 chars)
-        # centered in 40: (40 - 38) // 2 = 1 space
+        # Original: '"This is a very long PR title..."' (64 chars)
+        # Truncated: '"This is a very long PR title that ...' (38 chars)
         expected = """\
                feature-a
  "This is a very long PR title that ...
@@ -370,8 +369,8 @@ class TestTree:
         client.tree(repo)
 
         # Column width is 25, max text width is 23 (25-2)
-        # "feature-a-with-long-name" (24 chars) -> "feature-a-with-long-..." (23 chars)
-        # '"This is a very long title for A"' (33 chars) -> '"This is a very long...' (23 chars)
+        # "feature-a-with-long-name" -> "feature-a-with-long-..." (23 chars)
+        # Title with quotes truncated to '"This is a very long...' (23 chars)
         expected = """\
  feature-a-with-long-...         feature-b
  "This is a very long...         "Short B"
@@ -534,6 +533,8 @@ def _make_local_pr(
             _is_local=True,
             _merge_will_conflict=source_merge_will_conflict,
         ),
-        destination_branch=MockBranch(name=destination_branch, _is_local=True),
+        destination_branch=MockBranch(
+            name=destination_branch, _is_local=True
+        ),
         url="https://github.com/test-user/test-repo/pull/1",
     )
