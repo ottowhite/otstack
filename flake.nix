@@ -91,7 +91,7 @@
         {
           default = {
             type = "app";
-            program = "${venv}/bin/otstack";
+            program = "${venv}/bin/ots";
           };
         }
       );

@@ -5,7 +5,9 @@ from otstack.OtStackClient import OtStackClient
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="OtStack - PR dependency management")
+    parser = argparse.ArgumentParser(
+        prog="ots", description="OtStack - PR dependency management"
+    )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     tree_parser = subparsers.add_parser("tree", help="Show PR dependency tree")

@@ -10,7 +10,7 @@ dependencies = [
 ]
 
 [project.scripts]
-otstack = "otstack.main:main"
+ots = "otstack.main:main"
 
 [project.optional-dependencies]
 dev = [

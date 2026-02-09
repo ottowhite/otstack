@@ -31,7 +31,7 @@
 ### below
 Insert a new PR "below" the current PR in a stack. Creates a new branch and PR that becomes the new base for the current PR, with a git worktree for parallel development.
 
-**Usage:** `otstack below --branch <name> --title <title> --worktree <path> [options]`
+**Usage:** `ots below --branch <name> --title <title> --worktree <path> [options]`
 
 **Required arguments:**
 - `--branch, -b` - Name for the new branch
@@ -72,9 +72,11 @@ The project provides a Nix flake for installation via URL from other flakes.
 
 **Local commands:**
 - `nix build .#` - Build the package
-- `nix run .# -- <command>` - Run otstack directly
+- `nix run .# -- <command>` - Run ots directly
 
 **Remote usage:**
 - `nix run github:ottowhite/otstack -- <command>` - Run from remote without cloning
+
+**CLI binary:** The installed binary is named `ots`. It auto-detects the repository from the current directory's git remote.
 
 **Development:** Use `nix-shell` (not `nix develop`) which uses the existing `shell.nix`.
