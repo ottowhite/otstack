@@ -26,3 +26,15 @@ class MockBranch(Branch):
     def push(self) -> bool:
         self.push_called = True
         return self._push_will_succeed
+
+    def has_merge_conflicts(self) -> bool:
+        return False
+
+    def abort_merge(self) -> None:
+        pass
+
+    def get_working_dir(self) -> str:
+        return "/mock/working/dir"
+
+    def create_empty_commit(self, message: str) -> None:
+        pass

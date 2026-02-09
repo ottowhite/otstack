@@ -488,6 +488,9 @@ class OtStackClient:
         # Create worktree for the new branch
         repo.create_worktree(new_branch, worktree_path)
 
+        # Create empty commit so GitHub allows creating a PR
+        new_branch.create_empty_commit(f"chore: initialize {new_branch_name} branch")
+
         # Push new branch to origin
         new_branch.push()
 

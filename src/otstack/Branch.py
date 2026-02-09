@@ -43,3 +43,7 @@ class Branch(Protocol):
     def get_working_dir(self) -> str:
         """Get the working directory path for this branch's repo."""
         ...
+
+    def create_empty_commit(self, message: str) -> None:
+        """Create an empty commit on this branch with the given message."""
+        ...
