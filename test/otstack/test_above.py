@@ -372,6 +372,7 @@ class TestAbove:
         )
 
         # Verify result contains all expected information
+        assert not isinstance(result, AboveDryRunResult)
         assert result.new_branch.name == "feature-b"
         assert result.new_pr.title == "Feature B"
         assert result.current_pr == pr

@@ -1,8 +1,38 @@
 import argparse
+import sys
+from typing import NoReturn
 
 from otstack.AboveDryRunResult import AboveDryRunResult
 from otstack.BelowDryRunResult import BelowDryRunResult
 from otstack.OtStackClient import OtStackClient
+from otstack.Repository import Repository
+
+
+def _fatal(message: str) -> NoReturn:
+    """Print an error message and exit."""
+    print(message)
+    sys.exit(-1)
+
+
+def _resolve_repo(
+    client: OtStackClient,
+    repo_arg: str | None,
+    local_path: str,
+) -> Repository:
+    """Resolve the repository from args or detect from local path."""
+    if repo_arg is not None:
+        return client.get_repo(repo_arg, local_path)
+
+    repo = client.detect_repo(local_path)
+    if repo is None:
+        _fatal(
+            "Could not detect repository. Please specify --repo or run "
+            "from within a git repository with a GitHub remote."
+        )
+    # _fatal never returns, but type checker needs this
+    assert repo is not None
+    print(f"Detected repository: {repo.full_name}")
+    return repo
 
 
 def main() -> None:
@@ -170,17 +200,7 @@ def main() -> None:
     try:
         local_path = getattr(args, "path", None) or "."
         with OtStackClient() as client:
-            if args.repo is None:
-                repo = client.detect_repo(local_path)
-                if repo is None:
-                    print(
-                        "Could not detect repository. Please specify --repo or run "
-                        "from within a git repository with a GitHub remote."
-                    )
-                    exit(-1)
-                print(f"Detected repository: {repo.full_name}")
-            else:
-                repo = client.get_repo(args.repo, local_path)
+            repo = _resolve_repo(client, args.repo, local_path)
 
             if args.command == "tree":
                 print(f"Repository: {repo.full_name}\n")

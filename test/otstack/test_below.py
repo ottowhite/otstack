@@ -2,6 +2,7 @@ import io
 
 import pytest
 
+from otstack.BelowDryRunResult import BelowDryRunResult
 from otstack.OtStackClient import OtStackClient
 
 from .helpers.MockBranch import MockBranch
@@ -256,6 +257,7 @@ class TestBelow:
         )
 
         # Verify result contains all expected information
+        assert not isinstance(result, BelowDryRunResult)
         assert result.new_branch.name == "prep-work"
         assert result.new_pr.title == "Preparatory refactor"
         assert result.original_pr == pr
@@ -527,6 +529,7 @@ class TestBelowDryRun:
             dry_run=True,
         )
 
+        assert isinstance(result, BelowDryRunResult)
         output = result.format_output()
         assert "Dry run - no changes will be made" in output
 
@@ -552,6 +555,7 @@ class TestBelowDryRun:
             dry_run=True,
         )
 
+        assert isinstance(result, BelowDryRunResult)
         output = result.format_output()
         assert "Current state:" in output
         assert "Branch: feature-branch" in output
@@ -584,6 +588,7 @@ class TestBelowDryRun:
             dry_run=True,
         )
 
+        assert isinstance(result, BelowDryRunResult)
         output = result.format_output()
         assert "Actions that would be performed:" in output
         assert "Create branch 'auth-refactor'" in output

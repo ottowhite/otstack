@@ -1,10 +1,12 @@
+from collections.abc import Sequence
+
 from otstack.GitHubClient import GitHubClient
 from otstack.Repository import Repository
 
 
 class MockGitHubClient(GitHubClient):
-    def __init__(self, repos: list[Repository] | None = None) -> None:
-        self._repos = repos or []
+    def __init__(self, repos: Sequence[Repository] | None = None) -> None:
+        self._repos: list[Repository] = list(repos) if repos else []
         self._closed = False
 
     def get_user_repos(self) -> list[Repository]:
