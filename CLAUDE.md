@@ -75,6 +75,30 @@ When `--dry-run` is passed, the command performs all validation checks (which ar
 - Current state (branch and PR info)
 - Numbered list of actions that would be performed (create branch, worktree, push, create PR, retarget, copy files, run direnv)
 
+### above
+Insert a new PR "above" the current PR in a stack. Creates a new branch from the current branch and a PR targeting the current branch, with a git worktree for parallel development.
+
+**Usage:** `ots above --branch <name> --title <title> --worktree <path> [options]`
+
+**Required arguments:**
+- `--branch, -b` - Name for the new branch
+- `--title, -t` - Title for the new PR
+- `--worktree, -w` - Path where the new worktree will be created
+
+**Optional arguments:**
+- `--repo, -r` - Repository name (owner/repo), auto-detected if omitted
+- `--path, -p` - Path to local git repository (defaults to `.`)
+- `--direnv` - Run `direnv allow` in new worktree after creation
+- `--copy, -c` - Copy file from current worktree to new (repeatable)
+- `--dry-run, -n` - Show what would happen without making any changes
+
+**Key difference from `below`:** The `above` command creates a branch from the current branch and the new PR targets the current branch. No PR retargeting is needed - the new PR simply becomes a child of the current PR in the stack.
+
+**Dry run behavior:**
+When `--dry-run` is passed, the command performs all validation checks and then prints what would happen:
+- Current state (branch and PR info)
+- Numbered list of actions (create branch, worktree, push, create PR, copy files, run direnv)
+
 ## Nix Flake
 
 The project provides a Nix flake for installation via URL from other flakes.
