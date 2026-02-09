@@ -1,6 +1,6 @@
 # OtStack Development Guide
 
-- Always keep this CLAUDE.md up to date as you make changes
+- Always keep this CLAUDE.md and README.md up to date as you make changes
 - Perform atomic git commits with standard git tags and descriptions as you work, and always push directly after committing
 
 ## Project Overview
