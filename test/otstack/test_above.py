@@ -241,6 +241,270 @@ class TestAbove:
                 worktree_path=str(existing_path),
             )
 
+    def test_creates_new_branch_from_current_branch(self, tmp_path) -> None:
+        """above() creates new branch from current branch (not destination)."""
+        current_branch = MockBranch(name="feature-a")
+        pr = _make_pr(source_branch="feature-a", destination_branch="main")
+        repo = _make_repo(current_branch=current_branch, pull_requests=[pr])
+        command_runner = TrackingCommandRunner()
+        client = _make_client(repos=[repo], command_runner=command_runner)
+        worktree_path = str(tmp_path / "new-worktree")
+
+        client.above(
+            repo=repo,
+            new_branch_name="feature-b",
+            pr_title="Feature B",
+            worktree_path=worktree_path,
+        )
+
+        # Verify the new branch was created from current branch (feature-a)
+        assert len(repo.created_branches) == 1
+        branch_name, from_branch = repo.created_branches[0]
+        assert branch_name == "feature-b"
+        assert from_branch.name == "feature-a"
+
+    def test_creates_worktree_for_new_branch(self, tmp_path) -> None:
+        """above() creates a git worktree for the new branch."""
+        current_branch = MockBranch(name="feature-a")
+        pr = _make_pr(source_branch="feature-a", destination_branch="main")
+        repo = _make_repo(current_branch=current_branch, pull_requests=[pr])
+        command_runner = TrackingCommandRunner()
+        client = _make_client(repos=[repo], command_runner=command_runner)
+        worktree_path = str(tmp_path / "new-worktree")
+
+        client.above(
+            repo=repo,
+            new_branch_name="feature-b",
+            pr_title="Feature B",
+            worktree_path=worktree_path,
+        )
+
+        # Verify worktree was created
+        assert len(repo.created_worktrees) == 1
+        branch, path = repo.created_worktrees[0]
+        assert branch.name == "feature-b"
+        assert path == worktree_path
+
+    def test_pushes_new_branch_to_origin(self, tmp_path) -> None:
+        """above() pushes the new branch to origin."""
+        current_branch = MockBranch(name="feature-a")
+        pr = _make_pr(source_branch="feature-a", destination_branch="main")
+        repo = _make_repo(current_branch=current_branch, pull_requests=[pr])
+        command_runner = TrackingCommandRunner()
+        client = _make_client(repos=[repo], command_runner=command_runner)
+        worktree_path = str(tmp_path / "new-worktree")
+
+        client.above(
+            repo=repo,
+            new_branch_name="feature-b",
+            pr_title="Feature B",
+            worktree_path=worktree_path,
+        )
+
+        # Verify git push was called via command runner
+        push_commands = [
+            cmd for cmd, cwd in command_runner.commands if "push" in cmd
+        ]
+        assert len(push_commands) == 1
+        assert push_commands[0] == ["git", "push", "-u", "origin", "feature-b"]
+
+    def test_creates_pr_from_new_branch_to_current_branch(self, tmp_path) -> None:
+        """above() creates a PR from new branch to current branch (not destination)."""
+        current_branch = MockBranch(name="feature-a")
+        pr = _make_pr(source_branch="feature-a", destination_branch="main")
+        repo = _make_repo(current_branch=current_branch, pull_requests=[pr])
+        command_runner = TrackingCommandRunner()
+        client = _make_client(repos=[repo], command_runner=command_runner)
+        worktree_path = str(tmp_path / "new-worktree")
+
+        client.above(
+            repo=repo,
+            new_branch_name="feature-b",
+            pr_title="Feature B",
+            worktree_path=worktree_path,
+        )
+
+        # Verify new PR was created targeting current branch
+        assert len(repo.created_prs) == 1
+        source, destination, title = repo.created_prs[0]
+        assert source.name == "feature-b"
+        assert destination.name == "feature-a"  # Key difference from below
+        assert title == "Feature B"
+
+    def test_does_not_retarget_current_pr(self, tmp_path) -> None:
+        """above() does NOT change the current PR's destination (unlike below)."""
+        current_branch = MockBranch(name="feature-a")
+        main_branch = MockBranch(name="main")
+        pr = _make_pr(
+            source_branch="feature-a",
+            destination_branch="main",
+            destination_branch_obj=main_branch,
+        )
+        repo = _make_repo(current_branch=current_branch, pull_requests=[pr])
+        command_runner = TrackingCommandRunner()
+        client = _make_client(repos=[repo], command_runner=command_runner)
+        worktree_path = str(tmp_path / "new-worktree")
+
+        client.above(
+            repo=repo,
+            new_branch_name="feature-b",
+            pr_title="Feature B",
+            worktree_path=worktree_path,
+        )
+
+        # Key difference from below: current PR destination should still be 'main'
+        assert pr.destination_branch.name == "main"
+
+    def test_returns_above_result_with_all_artifacts(self, tmp_path) -> None:
+        """above() returns AboveResult with new branch, PRs, and worktree path."""
+        current_branch = MockBranch(name="feature-a")
+        pr = _make_pr(source_branch="feature-a", destination_branch="main")
+        repo = _make_repo(current_branch=current_branch, pull_requests=[pr])
+        command_runner = TrackingCommandRunner()
+        client = _make_client(repos=[repo], command_runner=command_runner)
+        worktree_path = str(tmp_path / "new-worktree")
+
+        result = client.above(
+            repo=repo,
+            new_branch_name="feature-b",
+            pr_title="Feature B",
+            worktree_path=worktree_path,
+        )
+
+        # Verify result contains all expected information
+        assert result.new_branch.name == "feature-b"
+        assert result.new_pr.title == "Feature B"
+        assert result.current_pr == pr
+        assert result.worktree_path == worktree_path
+
+    def test_copies_files_to_new_worktree(self, tmp_path) -> None:
+        """above() copies specified files to the new worktree."""
+        # Set up current worktree with a file
+        current_worktree = tmp_path / "current"
+        current_worktree.mkdir()
+        env_file = current_worktree / ".env"
+        env_file.write_text("SECRET=abc123")
+
+        # Set up new worktree path
+        new_worktree = tmp_path / "new-worktree"
+
+        current_branch = MockBranch(name="feature-a")
+        pr = _make_pr(source_branch="feature-a", destination_branch="main")
+        repo = _make_repo(
+            current_branch=current_branch,
+            pull_requests=[pr],
+            working_dir=str(current_worktree),
+        )
+        command_runner = TrackingCommandRunner()
+        client = _make_client(repos=[repo], command_runner=command_runner)
+
+        client.above(
+            repo=repo,
+            new_branch_name="feature-b",
+            pr_title="Feature B",
+            worktree_path=str(new_worktree),
+            copy_files=[".env"],
+        )
+
+        # Verify file was copied
+        new_env_file = new_worktree / ".env"
+        assert new_env_file.exists()
+        assert new_env_file.read_text() == "SECRET=abc123"
+
+    def test_raises_error_when_copy_file_does_not_exist(self, tmp_path) -> None:
+        """above() raises ValueError when file to copy doesn't exist."""
+        current_worktree = tmp_path / "current"
+        current_worktree.mkdir()
+        new_worktree = tmp_path / "new-worktree"
+
+        current_branch = MockBranch(name="feature-a")
+        pr = _make_pr(source_branch="feature-a", destination_branch="main")
+        repo = _make_repo(
+            current_branch=current_branch,
+            pull_requests=[pr],
+            working_dir=str(current_worktree),
+        )
+        command_runner = TrackingCommandRunner()
+        client = _make_client(repos=[repo], command_runner=command_runner)
+
+        with pytest.raises(
+            ValueError, match="Cannot copy '.env': file does not exist"
+        ):
+            client.above(
+                repo=repo,
+                new_branch_name="feature-b",
+                pr_title="Feature B",
+                worktree_path=str(new_worktree),
+                copy_files=[".env"],
+            )
+
+
+class TestAboveDirenv:
+    def test_runs_direnv_allow_in_worktree_when_flag_is_set(self, tmp_path) -> None:
+        """above() runs 'direnv allow' in the new worktree when run_direnv=True."""
+        current_branch = MockBranch(name="feature-a")
+        pr = _make_pr(source_branch="feature-a", destination_branch="main")
+        repo = _make_repo(current_branch=current_branch, pull_requests=[pr])
+        command_runner = TrackingCommandRunner()
+        client = _make_client(repos=[repo], command_runner=command_runner)
+        worktree_path = str(tmp_path / "new-worktree")
+
+        client.above(
+            repo=repo,
+            new_branch_name="feature-b",
+            pr_title="Feature B",
+            worktree_path=worktree_path,
+            run_direnv=True,
+        )
+
+        assert (["direnv", "allow"], worktree_path) in command_runner.commands
+
+    def test_does_not_run_direnv_when_flag_is_not_set(self, tmp_path) -> None:
+        """above() does NOT run 'direnv allow' when run_direnv=False (default)."""
+        current_branch = MockBranch(name="feature-a")
+        pr = _make_pr(source_branch="feature-a", destination_branch="main")
+        repo = _make_repo(current_branch=current_branch, pull_requests=[pr])
+        command_runner = TrackingCommandRunner()
+        client = _make_client(repos=[repo], command_runner=command_runner)
+        worktree_path = str(tmp_path / "new-worktree")
+
+        client.above(
+            repo=repo,
+            new_branch_name="feature-b",
+            pr_title="Feature B",
+            worktree_path=worktree_path,
+            run_direnv=False,
+        )
+
+        # Should not have direnv command (but will have git commands)
+        direnv_commands = [
+            cmd for cmd, _ in command_runner.commands if "direnv" in cmd
+        ]
+        assert direnv_commands == []
+
+    def test_prints_warning_when_direnv_not_found(self, tmp_path) -> None:
+        """above() prints a warning when 'direnv' command is not found."""
+        current_branch = MockBranch(name="feature-a")
+        pr = _make_pr(source_branch="feature-a", destination_branch="main")
+        repo = _make_repo(current_branch=current_branch, pull_requests=[pr])
+        command_runner = TrackingCommandRunner(raise_file_not_found_for=["direnv"])
+        output = io.StringIO()
+        client = _make_client(
+            repos=[repo], command_runner=command_runner, output=output
+        )
+        worktree_path = str(tmp_path / "new-worktree")
+
+        client.above(
+            repo=repo,
+            new_branch_name="feature-b",
+            pr_title="Feature B",
+            worktree_path=worktree_path,
+            run_direnv=True,
+        )
+
+        output_text = output.getvalue()
+        assert "Warning: 'direnv' command not found" in output_text
+
 
 # Test helpers
 

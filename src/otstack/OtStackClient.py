@@ -589,7 +589,67 @@ class OtStackClient:
                 "Choose a different worktree path."
             )
 
-        raise NotImplementedError("above() not yet fully implemented")
+        # Get the current PR
+        current_pr = current_pr_list[0]
+
+        # Create new branch from current branch (key difference from below)
+        new_branch = repo.create_branch(new_branch_name, current_branch)
+
+        # Create worktree for the new branch
+        repo.create_worktree(new_branch, worktree_path)
+
+        # Create empty commit in worktree so GitHub allows creating a PR
+        self._command_runner.run(
+            [
+                "git",
+                "commit",
+                "--allow-empty",
+                "-m",
+                f"chore: initialize {new_branch_name}",
+            ],
+            cwd=worktree_path,
+        )
+
+        # Push new branch from worktree
+        self._command_runner.run(
+            ["git", "push", "-u", "origin", new_branch_name],
+            cwd=worktree_path,
+        )
+
+        # Create PR from new branch to current branch (key difference from below)
+        new_pr = repo.create_pr(new_branch, current_branch, pr_title)
+
+        # Note: No retargeting needed for above() - the new PR targets current branch
+
+        # Copy files if specified
+        if copy_files:
+            current_working_dir = repo.get_working_dir()
+            for file_path in copy_files:
+                src = Path(current_working_dir) / file_path
+                dst = Path(worktree_path) / file_path
+                if src.exists():
+                    dst.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(src, dst)
+                else:
+                    raise ValueError(
+                        f"Cannot copy '{file_path}': file does not exist."
+                    )
+
+        # Run direnv allow if requested
+        if run_direnv:
+            try:
+                self._command_runner.run(["direnv", "allow"], cwd=worktree_path)
+            except FileNotFoundError:
+                self._output.write(
+                    "Warning: 'direnv' command not found. Skipping direnv allow.\n"
+                )
+
+        return AboveResult(
+            new_branch=new_branch,
+            new_pr=new_pr,
+            current_pr=current_pr,
+            worktree_path=worktree_path,
+        )
 
     @property
     def github(self) -> GitHubClient:
