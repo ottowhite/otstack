@@ -501,9 +501,10 @@ class OtStackClient:
         repo.create_worktree(new_branch, worktree_path)
 
         # Create empty commit in worktree so GitHub allows creating a PR
+        # Skip hooks since worktree may not have full dev environment
         msg = f"chore: initialize {new_branch_name}"
         self._command_runner.run(
-            ["git", "commit", "--allow-empty", "-m", msg],
+            ["git", "commit", "--allow-empty", "--no-verify", "-m", msg],
             cwd=worktree_path,
         )
 
@@ -624,11 +625,13 @@ class OtStackClient:
         repo.create_worktree(new_branch, worktree_path)
 
         # Create empty commit in worktree so GitHub allows creating a PR
+        # Skip hooks since worktree may not have full dev environment
         self._command_runner.run(
             [
                 "git",
                 "commit",
                 "--allow-empty",
+                "--no-verify",
                 "-m",
                 f"chore: initialize {new_branch_name}",
             ],
