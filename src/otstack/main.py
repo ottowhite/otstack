@@ -1,5 +1,6 @@
 import argparse
 
+from otstack.AboveDryRunResult import AboveDryRunResult
 from otstack.BelowDryRunResult import BelowDryRunResult
 from otstack.OtStackClient import OtStackClient
 
@@ -95,6 +96,66 @@ def main() -> None:
         help="Show what would happen without making any changes",
     )
 
+    above_parser = subparsers.add_parser(
+        "above", help="Insert a new PR above the current PR in the stack"
+    )
+    above_parser.add_argument(
+        "--branch",
+        "-b",
+        type=str,
+        required=True,
+        help="Name for the new branch to create",
+    )
+    above_parser.add_argument(
+        "--title",
+        "-t",
+        type=str,
+        required=True,
+        help="Title for the new PR",
+    )
+    above_parser.add_argument(
+        "--worktree",
+        "-w",
+        type=str,
+        required=True,
+        help="Path where the new worktree will be created",
+    )
+    above_parser.add_argument(
+        "--repo",
+        "-r",
+        type=str,
+        required=False,
+        help="Repository name (owner/repo). Auto-detected from git remote if omitted.",
+    )
+    above_parser.add_argument(
+        "--path",
+        "-p",
+        type=str,
+        required=False,
+        help="Path to local git repository. Defaults to current directory.",
+    )
+    above_parser.add_argument(
+        "--direnv",
+        action="store_true",
+        help="Run 'direnv allow' in the new worktree after creation",
+    )
+    above_parser.add_argument(
+        "--copy",
+        "-c",
+        action="append",
+        dest="copy_files",
+        help=(
+            "Copy a file from current worktree to new worktree "
+            "(can be specified multiple times)"
+        ),
+    )
+    above_parser.add_argument(
+        "--dry-run",
+        "-n",
+        action="store_true",
+        help="Show what would happen without making any changes",
+    )
+
     args = parser.parse_args()
 
     try:
@@ -139,6 +200,26 @@ def main() -> None:
                     )
                     print(f"\nNew PR: {result.new_pr.url}")
                     print(f"Original PR (retargeted): {result.original_pr.url}")
+                    print(f"Worktree: {result.worktree_path}")
+            elif args.command == "above":
+                result = client.above(
+                    repo=repo,
+                    new_branch_name=args.branch,
+                    pr_title=args.title,
+                    worktree_path=args.worktree,
+                    copy_files=args.copy_files,
+                    run_direnv=args.direnv,
+                    dry_run=args.dry_run,
+                )
+                if isinstance(result, AboveDryRunResult):
+                    print(result.format_output())
+                else:
+                    print(
+                        f"\nSuccessfully inserted '{args.branch}' "
+                        "above your current PR!"
+                    )
+                    print(f"\nNew PR: {result.new_pr.url}")
+                    print(f"Current PR: {result.current_pr.url}")
                     print(f"Worktree: {result.worktree_path}")
     except ValueError as e:
         print(e)
