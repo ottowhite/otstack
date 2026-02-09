@@ -12,6 +12,9 @@ class TrackingCommandRunner(CommandRunner):
 
     def run(self, command: list[str], cwd: str | None = None) -> None:
         """Run a command and track it."""
-        if self.raise_file_not_found_for and command[0] in self.raise_file_not_found_for:
+        if (
+            self.raise_file_not_found_for
+            and command[0] in self.raise_file_not_found_for
+        ):
             raise FileNotFoundError(f"Command not found: {command[0]}")
         self.commands.append((command, cwd))

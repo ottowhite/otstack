@@ -7,7 +7,9 @@ from .helpers.MockPullRequest import MockPullRequest
 class TestPRTree:
     def test_prtree_holds_branch_name_and_children(self) -> None:
         """PRTree dataclass holds branch_name, pull_request, and children."""
-        pr = _make_pr(title="Test PR", source_branch="feature", destination_branch="main")
+        pr = _make_pr(
+            title="Test PR", source_branch="feature", destination_branch="main"
+        )
 
         tree = PRTree(
             branch_name="feature",

@@ -26,10 +26,12 @@ class PullRequest(Protocol):
 
     def sync(self) -> bool:
         """
-        Sync the PR by pulling destination, merging into source, and pushing source.
+        Sync the PR by pulling destination, merging into source, and pushing
+        source.
 
         Precondition: is_local() must return True.
         Raises ValueError if is_local() returns False.
-        Returns True if sync succeeded, False if merge would conflict (no push performed).
+        Returns True if sync succeeded, False if merge would conflict
+        (no push performed).
         """
         ...

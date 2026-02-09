@@ -32,7 +32,7 @@ class TestPullRequestIsLocal:
         assert pr.is_local() is False
 
     def test_mock_pull_request_returns_false_when_destination_not_local(self) -> None:
-        """MockPullRequest.is_local() returns False when destination branch is not local."""
+        """is_local() returns False when destination branch is not local."""
         pr = _make_pr(source_is_local=True, destination_is_local=False)
 
         assert pr.is_local() is False

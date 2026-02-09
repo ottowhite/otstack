@@ -22,7 +22,10 @@ def _clean_git_env() -> Iterator[None]:
 
 @dataclass
 class LocalBranch(Branch):
-    """Concrete implementation of Branch using GitPython for local filesystem operations."""
+    """
+    Concrete implementation of Branch using GitPython for local filesystem
+    operations.
+    """
 
     name: str
     _repo: Repo = field(repr=False)
@@ -32,7 +35,8 @@ class LocalBranch(Branch):
         Merge other_branch into this branch.
 
         Returns True if merge succeeded (or already up to date).
-        Returns False if there are conflicts (left in conflicted state for manual resolution).
+        Returns False if there are conflicts (left in conflicted state for
+        manual resolution).
         """
         with _clean_git_env():
             self._repo.git.checkout(self.name)
@@ -49,9 +53,8 @@ class LocalBranch(Branch):
 
             # Merge succeeded, commit it (may fail if nothing to commit)
             try:
-                self._repo.git.commit(
-                    "-m", f"Merge (patch propagation) {other_branch.name} -> {self.name}"
-                )
+                msg = f"Merge (patch propagation) {other_branch.name} -> {self.name}"
+                self._repo.git.commit("-m", msg)
             except GitCommandError as e:
                 # "nothing to commit" or "no changes added" is fine - already up to date
                 stdout = str(e.stdout).lower()

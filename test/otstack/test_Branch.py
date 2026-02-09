@@ -83,7 +83,7 @@ class TestLocalBranchPush:
         # Setup: create a bare "origin" repo and a clone
         origin_path = tmp_path / "origin.git"
         clone_path = tmp_path / "clone"
-        origin_repo = Repo.init(origin_path, bare=True)
+        Repo.init(origin_path, bare=True)
 
         # Create clone with initial commit
         clone_repo = Repo.clone_from(str(origin_path), str(clone_path))

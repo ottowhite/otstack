@@ -16,7 +16,10 @@ def main() -> None:
         "--repo",
         type=str,
         required=False,
-        help="Repository name (e.g., 'repo-name'). If not provided, detects from git remote.",
+        help=(
+            "Repository name (e.g., 'repo-name'). "
+            "If not provided, detects from git remote."
+        ),
     )
     tree_parser.add_argument(
         "--path",
@@ -30,7 +33,10 @@ def main() -> None:
         "--repo",
         type=str,
         required=False,
-        help="Repository name (e.g., 'repo-name'). If not provided, detects from git remote.",
+        help=(
+            "Repository name (e.g., 'repo-name'). "
+            "If not provided, detects from git remote."
+        ),
     )
     sync_parser.add_argument(
         "--path",
@@ -87,7 +93,10 @@ def main() -> None:
         "-c",
         action="append",
         dest="copy_files",
-        help="Copy a file from current worktree to new worktree (can be specified multiple times)",
+        help=(
+            "Copy a file from current worktree to new worktree "
+            "(can be specified multiple times)"
+        ),
     )
     below_parser.add_argument(
         "--dry-run",
@@ -196,7 +205,8 @@ def main() -> None:
                     print(result.format_output())
                 else:
                     print(
-                        f"\nSuccessfully inserted '{args.branch}' below your current PR!"
+                        f"\nSuccessfully inserted '{args.branch}' "
+                        "below your current PR!"
                     )
                     print(f"\nNew PR: {result.new_pr.url}")
                     print(f"Original PR (retargeted): {result.original_pr.url}")

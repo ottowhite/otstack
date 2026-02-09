@@ -530,7 +530,7 @@ class TestBelowDryRun:
         output = result.format_output()
         assert "Dry run - no changes will be made" in output
 
-    def test_dry_run_result_format_output_includes_current_state(self, tmp_path) -> None:
+    def test_dry_run_format_output_includes_current_state(self, tmp_path) -> None:
         """BelowDryRunResult.format_output() includes current state section."""
         current_branch = MockBranch(name="feature-branch")
         main_branch = MockBranch(name="main")
@@ -748,10 +748,11 @@ def _make_pr(
     destination_branch_obj: MockBranch | None = None,
 ) -> MockPullRequest:
     """Create a MockPullRequest with the given branches."""
+    dest_branch = destination_branch_obj or MockBranch(name=destination_branch)
     return MockPullRequest(
         title=title,
         description=None,
         source_branch=MockBranch(name=source_branch),
-        destination_branch=destination_branch_obj or MockBranch(name=destination_branch),
+        destination_branch=dest_branch,
         url="https://github.com/test-user/test-repo/pull/1",
     )

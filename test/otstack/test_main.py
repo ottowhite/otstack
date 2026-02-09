@@ -37,7 +37,9 @@ class TestSyncCommand:
         mock_detector = MockGitRepoDetector(repo_name=None)
 
         with (
-            patch.object(sys, "argv", ["otstack", "sync", "--repo", "test-user/test-repo"]),
+            patch.object(
+                sys, "argv", ["otstack", "sync", "--repo", "test-user/test-repo"]
+            ),
             patch(
                 "otstack.main.OtStackClient",
                 return_value=_make_mock_client_context(mock_client, mock_detector),

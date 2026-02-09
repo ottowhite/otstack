@@ -340,7 +340,8 @@ class TestTree:
         client.tree(repo)
 
         # PR title (with quotes) should be truncated to 38 chars
-        # Title with quotes: '"This is a very long PR title that definitely exceeds the width"' (64 chars)
+        # Title with quotes: '"This is a very long PR title that
+        # definitely exceeds the width"' (64 chars)
         # Truncated to: '"This is a very long PR title that ...' (38 chars)
         # centered in 40: (40 - 38) // 2 = 1 space
         expected = """\
@@ -370,8 +371,8 @@ class TestTree:
         client.tree(repo)
 
         # Column width is 25, max text width is 23 (25-2)
-        # "feature-a-with-long-name" (24 chars) -> "feature-a-with-long-..." (23 chars)
-        # '"This is a very long title for A"' (33 chars) -> '"This is a very long...' (23 chars)
+        # "feature-a-with-long-name" (24 chars) -> "feature-a-with-long-..."
+        # '"This is a very long title for A"' (33 chars) -> '"This is a very long...'
         expected = """\
  feature-a-with-long-...         feature-b
  "This is a very long...         "Short B"
