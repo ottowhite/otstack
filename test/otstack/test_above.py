@@ -1,5 +1,7 @@
 import io
 
+import pytest
+
 from otstack.AboveDryRunResult import AboveDryRunResult
 from otstack.AboveResult import AboveResult
 from otstack.OtStackClient import OtStackClient
@@ -138,6 +140,106 @@ class TestAboveDryRunResult:
         assert ".env" in output
         assert ".env.local" in output
         assert "direnv allow" in output
+
+
+class TestAbove:
+    def test_raises_error_when_in_detached_head_state(self) -> None:
+        """above() raises ValueError when in detached HEAD state."""
+        repo = _make_repo(current_branch=None)
+        client = _make_client(repos=[repo])
+
+        with pytest.raises(ValueError, match="You are in detached HEAD state"):
+            client.above(
+                repo=repo,
+                new_branch_name="feature-b",
+                pr_title="Feature B",
+                worktree_path="/tmp/project-feature-b",
+            )
+
+    def test_raises_error_when_uncommitted_changes_exist(self) -> None:
+        """above() raises ValueError when there are uncommitted changes."""
+        current_branch = MockBranch(name="feature-a")
+        repo = _make_repo(current_branch=current_branch, has_uncommitted_changes=True)
+        client = _make_client(repos=[repo])
+
+        with pytest.raises(ValueError, match="You have uncommitted changes"):
+            client.above(
+                repo=repo,
+                new_branch_name="feature-b",
+                pr_title="Feature B",
+                worktree_path="/tmp/project-feature-b",
+            )
+
+    def test_raises_error_when_no_open_pr_for_current_branch(self) -> None:
+        """above() raises ValueError when no open PR exists for current branch."""
+        current_branch = MockBranch(name="feature-a")
+        repo = _make_repo(current_branch=current_branch, pull_requests=[])
+        client = _make_client(repos=[repo])
+
+        with pytest.raises(
+            ValueError, match="No open PR found for branch 'feature-a'"
+        ):
+            client.above(
+                repo=repo,
+                new_branch_name="feature-b",
+                pr_title="Feature B",
+                worktree_path="/tmp/project-feature-b",
+            )
+
+    def test_raises_error_when_multiple_open_prs_for_current_branch(self) -> None:
+        """above() raises ValueError when multiple open PRs exist for current branch."""
+        current_branch = MockBranch(name="feature-a")
+        pr1 = _make_pr(source_branch="feature-a", destination_branch="main")
+        pr2 = _make_pr(source_branch="feature-a", destination_branch="develop")
+        repo = _make_repo(current_branch=current_branch, pull_requests=[pr1, pr2])
+        client = _make_client(repos=[repo])
+
+        with pytest.raises(
+            ValueError, match="Multiple open PRs found for branch 'feature-a'"
+        ):
+            client.above(
+                repo=repo,
+                new_branch_name="feature-b",
+                pr_title="Feature B",
+                worktree_path="/tmp/project-feature-b",
+            )
+
+    def test_raises_error_when_new_branch_already_exists(self) -> None:
+        """above() raises ValueError when new branch name already exists."""
+        current_branch = MockBranch(name="feature-a")
+        pr = _make_pr(source_branch="feature-a", destination_branch="main")
+        existing_branch = MockBranch(name="feature-b")
+        repo = _make_repo(
+            current_branch=current_branch,
+            pull_requests=[pr],
+            branches=[existing_branch],
+        )
+        client = _make_client(repos=[repo])
+
+        with pytest.raises(ValueError, match="Branch 'feature-b' already exists"):
+            client.above(
+                repo=repo,
+                new_branch_name="feature-b",
+                pr_title="Feature B",
+                worktree_path="/tmp/project-feature-b",
+            )
+
+    def test_raises_error_when_worktree_path_already_exists(self, tmp_path) -> None:
+        """above() raises ValueError when worktree path already exists."""
+        current_branch = MockBranch(name="feature-a")
+        pr = _make_pr(source_branch="feature-a", destination_branch="main")
+        repo = _make_repo(current_branch=current_branch, pull_requests=[pr])
+        client = _make_client(repos=[repo])
+        existing_path = tmp_path / "existing-dir"
+        existing_path.mkdir()
+
+        with pytest.raises(ValueError, match="Path .* already exists"):
+            client.above(
+                repo=repo,
+                new_branch_name="feature-b",
+                pr_title="Feature B",
+                worktree_path=str(existing_path),
+            )
 
 
 # Test helpers

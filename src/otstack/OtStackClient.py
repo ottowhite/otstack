@@ -8,6 +8,8 @@ from typing import TextIO
 from dotenv import load_dotenv
 from git import InvalidGitRepositoryError, Repo
 
+from .AboveDryRunResult import AboveDryRunResult
+from .AboveResult import AboveResult
 from .BelowDryRunResult import BelowDryRunResult
 from .BelowResult import BelowResult
 from .CommandRunner import CommandRunner
@@ -530,6 +532,64 @@ class OtStackClient:
             original_pr=current_pr,
             worktree_path=worktree_path,
         )
+
+    def above(
+        self,
+        repo: Repository,
+        new_branch_name: str,
+        pr_title: str,
+        worktree_path: str,
+        copy_files: list[str] | None = None,
+        run_direnv: bool = False,
+        dry_run: bool = False,
+    ) -> AboveResult | AboveDryRunResult:
+        """
+        Insert a new PR above the current PR in the stack.
+
+        Creates a new branch from the current branch and a PR targeting current branch.
+        """
+        current_branch = repo.get_current_branch()
+        if current_branch is None:
+            raise ValueError(
+                "You are in detached HEAD state. Checkout a branch first."
+            )
+
+        if repo.has_uncommitted_changes():
+            raise ValueError(
+                "You have uncommitted changes. Commit or stash them first."
+            )
+
+        # Find PR for current branch
+        prs = repo.get_open_pull_requests()
+        current_pr_list = [
+            pr for pr in prs if pr.source_branch.name == current_branch.name
+        ]
+
+        if not current_pr_list:
+            raise ValueError(
+                f"No open PR found for branch '{current_branch.name}'. "
+                "Create a PR first."
+            )
+
+        if len(current_pr_list) > 1:
+            raise ValueError(
+                f"Multiple open PRs found for branch '{current_branch.name}'. "
+                "This is ambiguous."
+            )
+
+        # Check if new branch already exists
+        existing_branches = repo.get_branches()
+        if any(b.name == new_branch_name for b in existing_branches):
+            raise ValueError(f"Branch '{new_branch_name}' already exists.")
+
+        # Check if worktree path already exists
+        if os.path.exists(worktree_path):
+            raise ValueError(
+                f"Path '{worktree_path}' already exists. "
+                "Choose a different worktree path."
+            )
+
+        raise NotImplementedError("above() not yet fully implemented")
 
     @property
     def github(self) -> GitHubClient:
