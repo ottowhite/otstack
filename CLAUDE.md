@@ -55,3 +55,26 @@ Show PR dependency tree for a repository.
 
 ### sync
 Sync all local PRs by pulling destination and merging into source.
+
+## Nix Flake
+
+The project provides a Nix flake for installation via URL from other flakes.
+
+**Supported systems:** `x86_64-linux`, `x86_64-darwin`, `aarch64-darwin`
+
+**Usage from another flake:**
+```nix
+{
+  inputs.otstack.url = "github:ottowhite/otstack";
+  # Then use: inputs.otstack.packages.${system}.default
+}
+```
+
+**Local commands:**
+- `nix build .#` - Build the package
+- `nix run .# -- <command>` - Run otstack directly
+
+**Remote usage:**
+- `nix run github:ottowhite/otstack -- <command>` - Run from remote without cloning
+
+**Development:** Use `nix-shell` (not `nix develop`) which uses the existing `shell.nix`.

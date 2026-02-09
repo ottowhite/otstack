@@ -2,7 +2,7 @@ import sys
 from io import StringIO
 from unittest.mock import patch
 
-from main import main
+from otstack.main import main
 
 from .helpers.MockBranch import MockBranch
 from .helpers.MockGitHubClient import MockGitHubClient
@@ -21,7 +21,7 @@ class TestSyncCommand:
         with (
             patch.object(sys, "argv", ["otstack", "sync"]),
             patch(
-                "main.OtStackClient",
+                "otstack.main.OtStackClient",
                 return_value=_make_mock_client_context(mock_client, mock_detector),
             ),
             patch.object(sys, "stdout", new_callable=StringIO) as mock_stdout,
@@ -39,7 +39,7 @@ class TestSyncCommand:
         with (
             patch.object(sys, "argv", ["otstack", "sync", "--repo", "test-user/test-repo"]),
             patch(
-                "main.OtStackClient",
+                "otstack.main.OtStackClient",
                 return_value=_make_mock_client_context(mock_client, mock_detector),
             ),
             patch.object(sys, "stdout", new_callable=StringIO) as mock_stdout,
@@ -75,7 +75,7 @@ class TestBelowCommand:
                 ],
             ),
             patch(
-                "main.OtStackClient",
+                "otstack.main.OtStackClient",
                 return_value=_make_mock_client_context(mock_client, mock_detector),
             ),
             patch.object(sys, "stdout", new_callable=StringIO) as mock_stdout,

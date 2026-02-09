@@ -1,13 +1,16 @@
 [project]
 name = "otstack"
 version = "0.1.0"
-description = "Add your description here"
+description = "PR dependency stack management for GitHub"
 requires-python = ">=3.13"
 dependencies = [
     "dotenv>=0.9.9",
     "gitpython>=3.1.46",
     "pygithub>=2.8.1",
 ]
+
+[project.scripts]
+otstack = "otstack.main:main"
 
 [project.optional-dependencies]
 dev = [
