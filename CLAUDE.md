@@ -31,6 +31,7 @@ OtStack (`ots`) is a CLI tool for managing stacked pull requests on GitHub. It h
 - `Branch` (Protocol) / `LocalBranch`, `SimpleBranch` - Branch abstractions
 - `GitRepoDetector` - Detects repository from git remotes
 - `CommandRunner` (Protocol) / `SubprocessCommandRunner` - Shell command execution
+- `InteractivePrompter` - Handles interactive prompts for CLI commands using questionary
 
 ### Type Checking
 - Never use `if TYPE_CHECKING:` guards - we always type check, so these are unnecessary indirection
@@ -56,9 +57,11 @@ Sync all local PRs by pulling the destination branch and merging into the source
 ### below
 Insert a new PR "below" the current PR in a stack. Creates a new branch and PR that becomes the new base for the current PR, with a git worktree for parallel development.
 
-**Usage:** `ots below --branch <name> --title <title> --worktree <path> [options]`
+**Usage:** `ots below [--branch <name>] [--title <title>] [--worktree <path>] [options]`
 
-**Required arguments:**
+**Interactive mode:** If any required arguments are omitted, the command enters interactive mode and prompts for all inputs (including optional ones like direnv and copy files).
+
+**Arguments (prompted interactively if missing):**
 - `--branch, -b` - Name for the new branch
 - `--title, -t` - Title for the new PR
 - `--worktree, -w` - Path where the new worktree will be created
@@ -78,9 +81,11 @@ When `--dry-run` is passed, the command performs all validation checks (which ar
 ### above
 Insert a new PR "above" the current PR in a stack. Creates a new branch from the current branch and a PR targeting the current branch, with a git worktree for parallel development.
 
-**Usage:** `ots above --branch <name> --title <title> --worktree <path> [options]`
+**Usage:** `ots above [--branch <name>] [--title <title>] [--worktree <path>] [options]`
 
-**Required arguments:**
+**Interactive mode:** If any required arguments are omitted, the command enters interactive mode and prompts for all inputs (including optional ones like direnv and copy files).
+
+**Arguments (prompted interactively if missing):**
 - `--branch, -b` - Name for the new branch
 - `--title, -t` - Title for the new PR
 - `--worktree, -w` - Path where the new worktree will be created
