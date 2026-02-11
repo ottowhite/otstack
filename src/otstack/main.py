@@ -2,6 +2,7 @@ import argparse
 
 from otstack.AboveDryRunResult import AboveDryRunResult
 from otstack.BelowDryRunResult import BelowDryRunResult
+from otstack.InteractivePrompter import InteractivePrompter
 from otstack.OtStackClient import OtStackClient
 from otstack.Repository import Repository
 
@@ -65,21 +66,21 @@ def main() -> None:
         "--branch",
         "-b",
         type=str,
-        required=True,
+        required=False,
         help="Name for the new branch to create",
     )
     below_parser.add_argument(
         "--title",
         "-t",
         type=str,
-        required=True,
+        required=False,
         help="Title for the new PR",
     )
     below_parser.add_argument(
         "--worktree",
         "-w",
         type=str,
-        required=True,
+        required=False,
         help="Path where the new worktree will be created",
     )
     below_parser.add_argument(
@@ -122,21 +123,21 @@ def main() -> None:
         "--branch",
         "-b",
         type=str,
-        required=True,
+        required=False,
         help="Name for the new branch to create",
     )
     above_parser.add_argument(
         "--title",
         "-t",
         type=str,
-        required=True,
+        required=False,
         help="Title for the new PR",
     )
     above_parser.add_argument(
         "--worktree",
         "-w",
         type=str,
-        required=True,
+        required=False,
         help="Path where the new worktree will be created",
     )
     above_parser.add_argument(
@@ -176,6 +177,18 @@ def main() -> None:
     )
 
     args = parser.parse_args()
+
+    # Handle interactive prompts for below/above when required args are missing
+    if args.command in ("below", "above"):
+        if not all([args.branch, args.title, args.worktree]):
+            prompter = InteractivePrompter()
+            inputs = prompter.prompt_below_above_inputs(args.command)
+            args.branch = inputs.branch
+            args.title = inputs.title
+            args.worktree = inputs.worktree
+            args.direnv = inputs.direnv
+            args.copy_files = inputs.copy_files
+            args.dry_run = inputs.dry_run
 
     try:
         local_path = getattr(args, "path", None) or "."
