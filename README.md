@@ -103,6 +103,36 @@ ots below \
   --dry-run
 ```
 
+### Insert PR Above Current
+
+Create a new PR that depends on your current PR. This is useful when you want to start work that builds on your current PR before it's merged.
+
+```bash
+ots above -b next-feature -t "Build on current work" -w ../next-feature-worktree
+```
+
+This will:
+1. Create a new branch `next-feature` from your current branch
+2. Create a git worktree at `../next-feature-worktree`
+3. Push and create a new PR targeting your current branch
+
+The new PR becomes a child of your current PR in the stack - when your current PR merges, the new PR will automatically retarget to your current PR's base.
+
+#### Options
+
+Same options as `below`:
+
+```
+-b, --branch     Name for the new branch (required)
+-t, --title      Title for the new PR (required)
+-w, --worktree   Path for the new git worktree (required)
+-r, --repo       Repository (owner/repo), auto-detected if omitted
+-p, --path       Path to local git repo, defaults to current directory
+    --direnv     Run 'direnv allow' in new worktree
+-c, --copy       Copy a file to new worktree (can repeat)
+-n, --dry-run    Show what would happen without making changes
+```
+
 ## Specifying Repository
 
 By default, `ots` detects the repository from the git remote of your current directory. You can override this:
