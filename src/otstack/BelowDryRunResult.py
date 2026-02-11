@@ -31,18 +31,9 @@ class BelowDryRunResult:
                 f"(same as '{self.original_destination_name}')"
             ),
             f"  2. Create worktree at {self.worktree_path}",
-            f"  3. Push '{self.new_branch_name}' to origin",
-            (
-                f"  4. Create PR: '{self.new_branch_name}' -> "
-                f"'{self.original_destination_name}' with title \"{self.pr_title}\""
-            ),
-            (
-                f"  5. Retarget PR: '{self.current_branch_name}' -> "
-                f"'{self.new_branch_name}' (was -> '{self.original_destination_name}')"
-            ),
         ]
 
-        step = 6
+        step = 3
         if self.copy_files:
             files_str = ", ".join(self.copy_files)
             lines.append(f"  {step}. Copy files: {files_str}")
@@ -50,5 +41,18 @@ class BelowDryRunResult:
 
         if self.run_direnv:
             lines.append(f"  {step}. Run 'direnv allow' in {self.worktree_path}")
+            step += 1
+
+        lines.append(f"  {step}. Push '{self.new_branch_name}' to origin")
+        step += 1
+        lines.append(
+            f"  {step}. Create PR: '{self.new_branch_name}' -> "
+            f"'{self.original_destination_name}' with title \"{self.pr_title}\""
+        )
+        step += 1
+        lines.append(
+            f"  {step}. Retarget PR: '{self.current_branch_name}' -> "
+            f"'{self.new_branch_name}' (was -> '{self.original_destination_name}')"
+        )
 
         return "\n".join(lines)

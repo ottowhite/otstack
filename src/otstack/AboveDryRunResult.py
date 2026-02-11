@@ -31,14 +31,9 @@ class AboveDryRunResult:
                 f"from '{self.current_branch_name}'"
             ),
             f"  2. Create worktree at {self.worktree_path}",
-            f"  3. Push '{self.new_branch_name}' to origin",
-            (
-                f"  4. Create PR: '{self.new_branch_name}' -> "
-                f"'{self.current_branch_name}' with title \"{self.pr_title}\""
-            ),
         ]
 
-        step = 5
+        step = 3
         if self.copy_files:
             files_str = ", ".join(self.copy_files)
             lines.append(f"  {step}. Copy files: {files_str}")
@@ -46,5 +41,13 @@ class AboveDryRunResult:
 
         if self.run_direnv:
             lines.append(f"  {step}. Run 'direnv allow' in {self.worktree_path}")
+            step += 1
+
+        lines.append(f"  {step}. Push '{self.new_branch_name}' to origin")
+        step += 1
+        lines.append(
+            f"  {step}. Create PR: '{self.new_branch_name}' -> "
+            f"'{self.current_branch_name}' with title \"{self.pr_title}\""
+        )
 
         return "\n".join(lines)
