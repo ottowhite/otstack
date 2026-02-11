@@ -493,6 +493,27 @@ class OtStackClient:
         # Create worktree for the new branch
         repo.create_worktree(new_branch, worktree_path)
 
+        # Copy files first (before direnv, which may need them like .env)
+        if copy_files:
+            current_working_dir = repo.get_working_dir()
+            for file_path in copy_files:
+                src = Path(current_working_dir) / file_path
+                dst = Path(worktree_path) / file_path
+                if src.exists():
+                    dst.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(src, dst)
+                else:
+                    raise ValueError(f"Cannot copy '{file_path}': file does not exist.")
+
+        # Run direnv allow before commit (so pre-commit hooks have proper environment)
+        if run_direnv:
+            try:
+                self._command_runner.run(["direnv", "allow"], cwd=worktree_path)
+            except FileNotFoundError:
+                self._output.write(
+                    "Warning: 'direnv' command not found. Skipping direnv allow.\n"
+                )
+
         # Create empty commit in worktree so GitHub allows creating a PR
         self._command_runner.run(
             [
@@ -515,27 +536,6 @@ class OtStackClient:
 
         # Retarget original PR to new branch
         current_pr.change_destination(new_branch)
-
-        # Copy files if specified
-        if copy_files:
-            current_working_dir = repo.get_working_dir()
-            for file_path in copy_files:
-                src = Path(current_working_dir) / file_path
-                dst = Path(worktree_path) / file_path
-                if src.exists():
-                    dst.parent.mkdir(parents=True, exist_ok=True)
-                    shutil.copy2(src, dst)
-                else:
-                    raise ValueError(f"Cannot copy '{file_path}': file does not exist.")
-
-        # Run direnv allow if requested
-        if run_direnv:
-            try:
-                self._command_runner.run(["direnv", "allow"], cwd=worktree_path)
-            except FileNotFoundError:
-                self._output.write(
-                    "Warning: 'direnv' command not found. Skipping direnv allow.\n"
-                )
 
         return BelowResult(
             new_branch=new_branch,
@@ -620,6 +620,29 @@ class OtStackClient:
         # Create worktree for the new branch
         repo.create_worktree(new_branch, worktree_path)
 
+        # Copy files first (before direnv, which may need them like .env)
+        if copy_files:
+            current_working_dir = repo.get_working_dir()
+            for file_path in copy_files:
+                src = Path(current_working_dir) / file_path
+                dst = Path(worktree_path) / file_path
+                if src.exists():
+                    dst.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(src, dst)
+                else:
+                    raise ValueError(
+                        f"Cannot copy '{file_path}': file does not exist."
+                    )
+
+        # Run direnv allow before commit (so pre-commit hooks have proper environment)
+        if run_direnv:
+            try:
+                self._command_runner.run(["direnv", "allow"], cwd=worktree_path)
+            except FileNotFoundError:
+                self._output.write(
+                    "Warning: 'direnv' command not found. Skipping direnv allow.\n"
+                )
+
         # Create empty commit in worktree so GitHub allows creating a PR
         self._command_runner.run(
             [
@@ -642,29 +665,6 @@ class OtStackClient:
         new_pr = repo.create_pr(new_branch, current_branch, pr_title)
 
         # Note: No retargeting needed for above() - the new PR targets current branch
-
-        # Copy files if specified
-        if copy_files:
-            current_working_dir = repo.get_working_dir()
-            for file_path in copy_files:
-                src = Path(current_working_dir) / file_path
-                dst = Path(worktree_path) / file_path
-                if src.exists():
-                    dst.parent.mkdir(parents=True, exist_ok=True)
-                    shutil.copy2(src, dst)
-                else:
-                    raise ValueError(
-                        f"Cannot copy '{file_path}': file does not exist."
-                    )
-
-        # Run direnv allow if requested
-        if run_direnv:
-            try:
-                self._command_runner.run(["direnv", "allow"], cwd=worktree_path)
-            except FileNotFoundError:
-                self._output.write(
-                    "Warning: 'direnv' command not found. Skipping direnv allow.\n"
-                )
 
         return AboveResult(
             new_branch=new_branch,
