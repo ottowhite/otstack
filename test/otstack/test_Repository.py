@@ -1,9 +1,12 @@
+from unittest.mock import MagicMock
+
 import pytest
 from git import Repo
 
 from otstack.LocalBranch import LocalBranch
 from otstack.PyGitHubRepository import PyGitHubRepository
 from otstack.Repository import Repository
+from otstack.SimpleBranch import SimpleBranch
 
 from .helpers.MockBranch import MockBranch
 from .helpers.MockRepository import MockRepository
@@ -382,6 +385,63 @@ class TestPyGitHubRepositoryGetWorkingDir:
         result = repo.get_working_dir()
 
         assert result == str(tmp_path)
+
+
+class TestPyGitHubRepositoryCreatePrDraft:
+    def test_passes_draft_false_by_default(self) -> None:
+        """create_pr() passes draft=False to PyGithub by default."""
+        gh_repo = MagicMock()
+        mock_pr = MagicMock()
+        mock_pr.title = "My PR"
+        mock_pr.body = ""
+        mock_pr.head.ref = "feature"
+        mock_pr.base.ref = "main"
+        mock_pr.html_url = "https://github.com/test/pr/1"
+        gh_repo.create_pull.return_value = mock_pr
+        repo = _make_pygithub_repo(git_repo=None)
+        repo._gh_repo = gh_repo
+
+        repo.create_pr(
+            SimpleBranch(name="feature"),
+            SimpleBranch(name="main"),
+            "My PR",
+        )
+
+        gh_repo.create_pull.assert_called_once_with(
+            title="My PR",
+            body="",
+            head="feature",
+            base="main",
+            draft=False,
+        )
+
+    def test_passes_draft_true_to_pygithub(self) -> None:
+        """create_pr(draft=True) passes draft=True to PyGithub."""
+        gh_repo = MagicMock()
+        mock_pr = MagicMock()
+        mock_pr.title = "My PR"
+        mock_pr.body = ""
+        mock_pr.head.ref = "feature"
+        mock_pr.base.ref = "main"
+        mock_pr.html_url = "https://github.com/test/pr/1"
+        gh_repo.create_pull.return_value = mock_pr
+        repo = _make_pygithub_repo(git_repo=None)
+        repo._gh_repo = gh_repo
+
+        repo.create_pr(
+            SimpleBranch(name="feature"),
+            SimpleBranch(name="main"),
+            "My PR",
+            draft=True,
+        )
+
+        gh_repo.create_pull.assert_called_once_with(
+            title="My PR",
+            body="",
+            head="feature",
+            base="main",
+            draft=True,
+        )
 
 
 # Test helpers

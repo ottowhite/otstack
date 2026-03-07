@@ -402,7 +402,7 @@ class TestAbove:
 
         # Verify new PR was created targeting current branch
         assert len(repo.created_prs) == 1
-        source, destination, title = repo.created_prs[0]
+        source, destination, title, draft = repo.created_prs[0]
         assert source.name == "feature-b"
         assert destination.name == "feature-a"  # Key difference from below
         assert title == "Feature B"

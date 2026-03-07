@@ -340,7 +340,7 @@ class TestBelow:
 
         # Verify new PR was created
         assert len(repo.created_prs) == 1
-        source, destination, title = repo.created_prs[0]
+        source, destination, title, draft = repo.created_prs[0]
         assert source.name == "prep-work"
         assert destination.name == "main"
         assert title == "Preparatory refactor"

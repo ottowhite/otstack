@@ -56,7 +56,11 @@ class PyGitHubRepository(Repository):
         return prs
 
     def create_pr(
-        self, source_branch: Branch, destination_branch: Branch, title: str
+        self,
+        source_branch: Branch,
+        destination_branch: Branch,
+        title: str,
+        draft: bool = False,
     ) -> PullRequest:
         """Create a pull request from source_branch to destination_branch."""
         if self._gh_repo is None:
@@ -66,6 +70,7 @@ class PyGitHubRepository(Repository):
             body="",
             head=source_branch.name,
             base=destination_branch.name,
+            draft=draft,
         )
 
         # Build a map of locally checked out branches by name
