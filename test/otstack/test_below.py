@@ -1999,6 +1999,96 @@ class TestBelowDirenv:
         output_text = output.getvalue()
         assert "Warning: 'direnv' command not found" in output_text
 
+    def test_wraps_commit_with_direnv_exec_when_direnv_enabled(self, tmp_path) -> None:
+        """below() wraps git commit with 'direnv exec .' when run_direnv=True."""
+        current_branch = MockBranch(name="feature-branch")
+        pr = _make_pr(source_branch="feature-branch", destination_branch="main")
+        repo = _make_repo(
+            current_branch=current_branch,
+            pull_requests=[pr],
+            working_dir="/tmp/repo",
+        )
+        command_runner = TrackingCommandRunner()
+        client = _make_client(repos=[repo], command_runner=command_runner)
+        worktree_path = str(tmp_path / "new-worktree")
+
+        client.below(
+            repo=repo,
+            new_branch_name="prep-work",
+            pr_title="Preparatory refactor",
+            worktree_path=worktree_path,
+            run_direnv=True,
+        )
+
+        commit_cmds = [
+            cmd for cmd, _ in command_runner.commands if "commit" in cmd
+        ]
+        assert len(commit_cmds) == 1
+        assert commit_cmds[0][:3] == ["direnv", "exec", "."]
+        assert "git" in commit_cmds[0]
+        assert "--allow-empty" in commit_cmds[0]
+
+    def test_does_not_wrap_commit_with_direnv_exec_when_direnv_disabled(
+        self, tmp_path
+    ) -> None:
+        """below() does NOT wrap commit with direnv when run_direnv=False."""
+        current_branch = MockBranch(name="feature-branch")
+        pr = _make_pr(source_branch="feature-branch", destination_branch="main")
+        repo = _make_repo(
+            current_branch=current_branch,
+            pull_requests=[pr],
+            working_dir="/tmp/repo",
+        )
+        command_runner = TrackingCommandRunner()
+        client = _make_client(repos=[repo], command_runner=command_runner)
+        worktree_path = str(tmp_path / "new-worktree")
+
+        client.below(
+            repo=repo,
+            new_branch_name="prep-work",
+            pr_title="Preparatory refactor",
+            worktree_path=worktree_path,
+            run_direnv=False,
+        )
+
+        commit_cmds = [
+            cmd for cmd, _ in command_runner.commands if "commit" in cmd
+        ]
+        assert len(commit_cmds) == 1
+        assert commit_cmds[0][0] == "git"
+
+    def test_does_not_wrap_commit_when_direnv_not_found(self, tmp_path) -> None:
+        """below() runs commit without direnv wrapping when direnv is not found."""
+        import io
+
+        current_branch = MockBranch(name="feature-branch")
+        pr = _make_pr(source_branch="feature-branch", destination_branch="main")
+        repo = _make_repo(
+            current_branch=current_branch,
+            pull_requests=[pr],
+            working_dir="/tmp/repo",
+        )
+        command_runner = TrackingCommandRunner(raise_file_not_found_for=["direnv"])
+        output = io.StringIO()
+        client = _make_client(
+            repos=[repo], command_runner=command_runner, output=output
+        )
+        worktree_path = str(tmp_path / "new-worktree")
+
+        client.below(
+            repo=repo,
+            new_branch_name="prep-work",
+            pr_title="Preparatory refactor",
+            worktree_path=worktree_path,
+            run_direnv=True,
+        )
+
+        commit_cmds = [
+            cmd for cmd, _ in command_runner.commands if "commit" in cmd
+        ]
+        assert len(commit_cmds) == 1
+        assert commit_cmds[0][0] == "git"
+
 
 # Test helpers
 

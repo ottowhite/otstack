@@ -665,12 +665,14 @@ class OtStackClient:
                         )
 
             # Run direnv allow before commit
+            direnv_available = False
             if run_direnv:
                 try:
                     self._command_runner.run(
                         ["direnv", "allow"],
                         cwd=worktree_path,
                     )
+                    direnv_available = True
                 except FileNotFoundError:
                     self._output.write(
                         "Warning: 'direnv' command"
@@ -688,6 +690,11 @@ class OtStackClient:
             ]
             if no_verify:
                 commit_cmd.insert(2, "--no-verify")
+            if direnv_available:
+                commit_cmd = [
+                    "direnv", "exec", ".",
+                    *commit_cmd,
+                ]
             try:
                 self._command_runner.run(
                     commit_cmd, cwd=worktree_path
@@ -969,12 +976,14 @@ class OtStackClient:
                         )
 
             # Run direnv allow before commit
+            direnv_available = False
             if run_direnv:
                 try:
                     self._command_runner.run(
                         ["direnv", "allow"],
                         cwd=worktree_path,
                     )
+                    direnv_available = True
                 except FileNotFoundError:
                     self._output.write(
                         "Warning: 'direnv' command"
@@ -992,6 +1001,11 @@ class OtStackClient:
             ]
             if no_verify:
                 commit_cmd.insert(2, "--no-verify")
+            if direnv_available:
+                commit_cmd = [
+                    "direnv", "exec", ".",
+                    *commit_cmd,
+                ]
             try:
                 self._command_runner.run(
                     commit_cmd, cwd=worktree_path
