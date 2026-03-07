@@ -128,6 +128,7 @@ def _make_repo_with_pr() -> MockRepository:
         url="https://github.com/test-user/test-repo",
         _pull_requests=[pr],
         _current_branch=MockBranch(name="feature"),
+        _working_dir="/tmp/repo",
     )
 
 

@@ -20,6 +20,7 @@ from .PullRequest import PullRequest
 from .PyGitHubClient import PyGitHubClient
 from .PyGitHubRepository import PyGitHubRepository
 from .Repository import Repository
+from .SimpleBranch import SimpleBranch
 from .SubprocessCommandRunner import SubprocessCommandRunner
 
 
@@ -493,8 +494,16 @@ class OtStackClient:
                 run_direnv=run_direnv,
             )
 
-        # Create new branch from the original destination
-        new_branch = repo.create_branch(new_branch_name, original_destination)
+        # Fetch latest remote state for the destination branch
+        working_dir = repo.get_working_dir()
+        self._command_runner.run(
+            ["git", "fetch", "origin", original_destination.name],
+            cwd=working_dir,
+        )
+
+        # Create new branch from the fetched remote ref
+        origin_ref = SimpleBranch(name=f"origin/{original_destination.name}")
+        new_branch = repo.create_branch(new_branch_name, origin_ref)
 
         # Create worktree for the new branch
         repo.create_worktree(new_branch, worktree_path)

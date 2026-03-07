@@ -186,8 +186,8 @@ class TestBelow:
                 worktree_path=str(existing_path),
             )
 
-    def test_creates_new_branch_from_original_destination(self, tmp_path) -> None:
-        """below() creates new branch at the same commit as original PR destination."""
+    def test_fetches_remote_before_creating_branch(self, tmp_path) -> None:
+        """below() fetches the destination branch from origin before creating."""
         current_branch = MockBranch(name="feature-branch")
         main_branch = MockBranch(name="main")
         pr = _make_pr(
@@ -195,7 +195,11 @@ class TestBelow:
             destination_branch="main",
             destination_branch_obj=main_branch,
         )
-        repo = _make_repo(current_branch=current_branch, pull_requests=[pr])
+        repo = _make_repo(
+            current_branch=current_branch,
+            pull_requests=[pr],
+            working_dir="/tmp/repo",
+        )
         command_runner = TrackingCommandRunner()
         client = _make_client(repos=[repo], command_runner=command_runner)
         worktree_path = str(tmp_path / "new-worktree")
@@ -207,17 +211,64 @@ class TestBelow:
             worktree_path=worktree_path,
         )
 
-        # Verify the new branch was created from main
+        # Verify fetch was called before other commands
+        fetch_commands = [
+            (cmd, cwd)
+            for cmd, cwd in command_runner.commands
+            if "fetch" in cmd
+        ]
+        assert len(fetch_commands) == 1
+        assert fetch_commands[0] == (
+            ["git", "fetch", "origin", "main"],
+            "/tmp/repo",
+        )
+
+        # Verify fetch comes before push in command order
+        cmd_names = [cmd[1] for cmd, _ in command_runner.commands]
+        fetch_idx = cmd_names.index("fetch")
+        push_idx = cmd_names.index("push")
+        assert fetch_idx < push_idx
+
+    def test_creates_new_branch_from_origin_destination(self, tmp_path) -> None:
+        """below() creates new branch from origin/<dest>, not local ref."""
+        current_branch = MockBranch(name="feature-branch")
+        main_branch = MockBranch(name="main")
+        pr = _make_pr(
+            source_branch="feature-branch",
+            destination_branch="main",
+            destination_branch_obj=main_branch,
+        )
+        repo = _make_repo(
+            current_branch=current_branch,
+            pull_requests=[pr],
+            working_dir="/tmp/repo",
+        )
+        command_runner = TrackingCommandRunner()
+        client = _make_client(repos=[repo], command_runner=command_runner)
+        worktree_path = str(tmp_path / "new-worktree")
+
+        client.below(
+            repo=repo,
+            new_branch_name="prep-work",
+            pr_title="Preparatory refactor",
+            worktree_path=worktree_path,
+        )
+
+        # Verify the new branch was created from origin/main
         assert len(repo.created_branches) == 1
         branch_name, from_branch = repo.created_branches[0]
         assert branch_name == "prep-work"
-        assert from_branch.name == "main"
+        assert from_branch.name == "origin/main"
 
     def test_creates_worktree_for_new_branch(self, tmp_path) -> None:
         """below() creates a git worktree for the new branch."""
         current_branch = MockBranch(name="feature-branch")
         pr = _make_pr(source_branch="feature-branch", destination_branch="main")
-        repo = _make_repo(current_branch=current_branch, pull_requests=[pr])
+        repo = _make_repo(
+            current_branch=current_branch,
+            pull_requests=[pr],
+            working_dir="/tmp/repo",
+        )
         command_runner = TrackingCommandRunner()
         client = _make_client(repos=[repo], command_runner=command_runner)
         worktree_path = str(tmp_path / "new-worktree")
@@ -239,7 +290,11 @@ class TestBelow:
         """below() pushes the new branch to origin."""
         current_branch = MockBranch(name="feature-branch")
         pr = _make_pr(source_branch="feature-branch", destination_branch="main")
-        repo = _make_repo(current_branch=current_branch, pull_requests=[pr])
+        repo = _make_repo(
+            current_branch=current_branch,
+            pull_requests=[pr],
+            working_dir="/tmp/repo",
+        )
         command_runner = TrackingCommandRunner()
         client = _make_client(repos=[repo], command_runner=command_runner)
         worktree_path = str(tmp_path / "new-worktree")
@@ -267,7 +322,11 @@ class TestBelow:
             destination_branch="main",
             destination_branch_obj=main_branch,
         )
-        repo = _make_repo(current_branch=current_branch, pull_requests=[pr])
+        repo = _make_repo(
+            current_branch=current_branch,
+            pull_requests=[pr],
+            working_dir="/tmp/repo",
+        )
         command_runner = TrackingCommandRunner()
         client = _make_client(repos=[repo], command_runner=command_runner)
         worktree_path = str(tmp_path / "new-worktree")
@@ -295,7 +354,11 @@ class TestBelow:
             destination_branch="main",
             destination_branch_obj=main_branch,
         )
-        repo = _make_repo(current_branch=current_branch, pull_requests=[pr])
+        repo = _make_repo(
+            current_branch=current_branch,
+            pull_requests=[pr],
+            working_dir="/tmp/repo",
+        )
         command_runner = TrackingCommandRunner()
         client = _make_client(repos=[repo], command_runner=command_runner)
         worktree_path = str(tmp_path / "new-worktree")
@@ -319,7 +382,11 @@ class TestBelow:
             destination_branch="main",
             destination_branch_obj=main_branch,
         )
-        repo = _make_repo(current_branch=current_branch, pull_requests=[pr])
+        repo = _make_repo(
+            current_branch=current_branch,
+            pull_requests=[pr],
+            working_dir="/tmp/repo",
+        )
         command_runner = TrackingCommandRunner()
         client = _make_client(repos=[repo], command_runner=command_runner)
         worktree_path = str(tmp_path / "new-worktree")
@@ -674,7 +741,9 @@ class TestBelowDryRun:
         assert isinstance(result, BelowDryRunResult)
         output = result.format_output()
         assert "Actions that would be performed:" in output
+        assert "Fetch latest 'main' from origin" in output
         assert "Create branch 'auth-refactor'" in output
+        assert "origin/main" in output
         assert "Create worktree at" in output
         assert "Push 'auth-refactor' to origin" in output
         assert "Create PR:" in output
@@ -729,7 +798,11 @@ class TestBelowDirenv:
         """below() runs 'direnv allow' in the new worktree when run_direnv=True."""
         current_branch = MockBranch(name="feature-branch")
         pr = _make_pr(source_branch="feature-branch", destination_branch="main")
-        repo = _make_repo(current_branch=current_branch, pull_requests=[pr])
+        repo = _make_repo(
+            current_branch=current_branch,
+            pull_requests=[pr],
+            working_dir="/tmp/repo",
+        )
         command_runner = TrackingCommandRunner()
         client = _make_client(repos=[repo], command_runner=command_runner)
         worktree_path = str(tmp_path / "new-worktree")
@@ -748,7 +821,11 @@ class TestBelowDirenv:
         """below() does NOT run 'direnv allow' when run_direnv=False (default)."""
         current_branch = MockBranch(name="feature-branch")
         pr = _make_pr(source_branch="feature-branch", destination_branch="main")
-        repo = _make_repo(current_branch=current_branch, pull_requests=[pr])
+        repo = _make_repo(
+            current_branch=current_branch,
+            pull_requests=[pr],
+            working_dir="/tmp/repo",
+        )
         command_runner = TrackingCommandRunner()
         client = _make_client(repos=[repo], command_runner=command_runner)
         worktree_path = str(tmp_path / "new-worktree")
@@ -771,7 +848,11 @@ class TestBelowDirenv:
 
         current_branch = MockBranch(name="feature-branch")
         pr = _make_pr(source_branch="feature-branch", destination_branch="main")
-        repo = _make_repo(current_branch=current_branch, pull_requests=[pr])
+        repo = _make_repo(
+            current_branch=current_branch,
+            pull_requests=[pr],
+            working_dir="/tmp/repo",
+        )
         command_runner = TrackingCommandRunner(raise_file_not_found_for=["direnv"])
         output = io.StringIO()
         client = _make_client(

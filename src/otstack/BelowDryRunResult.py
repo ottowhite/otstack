@@ -27,13 +27,17 @@ class BelowDryRunResult:
             "",
             "Actions that would be performed:",
             (
-                f"  1. Create branch '{self.new_branch_name}' "
-                f"(same as '{self.original_destination_name}')"
+                f"  1. Fetch latest '{self.original_destination_name}'"
+                " from origin"
             ),
-            f"  2. Create worktree at {self.worktree_path}",
+            (
+                f"  2. Create branch '{self.new_branch_name}'"
+                f" from 'origin/{self.original_destination_name}'"
+            ),
+            f"  3. Create worktree at {self.worktree_path}",
         ]
 
-        step = 3
+        step = 4
         if self.copy_files:
             files_str = ", ".join(self.copy_files)
             lines.append(f"  {step}. Copy files: {files_str}")
