@@ -207,3 +207,15 @@
   - Chaining below+above works because `_pull_requests` list still contains the original PR (with modified destination from below), and `above()` filters by `source_branch.name` to find the current branch's PR
   - 3-deep stack tests can include all PRs in `_pull_requests` - `above()` correctly filters to find only the current branch's PR
 ---
+
+## 2026-03-07 - US-014
+- What was implemented: Integration tests for running below from inside a worktree, and for file copying with the `copy_files` parameter.
+- Files changed:
+  - `test/otstack/test_integration_worktree.py` - New test file with 11 tests across 2 journey classes:
+    - `TestBelowFromWorktree` (6 tests): Creates a worktree for `feature`, opens `Repo(worktree_path)` as the repo context, runs `below()`. Verifies: correct branch detected, below succeeds, new branch exists, new worktree exists, PR created, original PR retargeted.
+    - `TestBelowWithFileCopy` (5 tests): Creates files (`.envrc`, `config/local.yaml`) in source repo, runs `below()` with `copy_files`. Verifies: copied file exists, content matches, nested directory copied, multiple files copied, below returns BelowResult.
+- **Learnings for future iterations:**
+  - Can't create a worktree for a branch that's already checked out - must `git checkout main` first in the main repo before `git worktree add wt-path feature`
+  - `Repo(worktree_path)` correctly detects worktree context - `active_branch`, `working_dir`, and git commands all work correctly
+  - Untracked files (not added to git index) are still present in `working_dir` and can be copied via `copy_files` - the copy uses `Path(working_dir) / file_path` which sees all files, not just tracked ones
+---
