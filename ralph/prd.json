@@ -1,0 +1,78 @@
+{
+  "project": "OtStack",
+  "branchName": "ralph/default-branch-above-below-fix",
+  "description": "Fix above/below on default branch - skip self-targeting PR creation, create new branch + PR targeting default branch directly",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "above on default branch creates PR targeting default branch directly",
+      "description": "As a developer on the default branch with no PR, I want ots above to create a new branch and PR targeting the default branch directly, so that I can start a new stack without a nonsensical self-targeting PR.",
+      "acceptanceCriteria": [
+        "When current branch equals repo.get_default_branch() and no open PR exists, above() skips the create_initial path entirely",
+        "No --create-pr flag is needed when on the default branch",
+        "No initial PR is created for the default branch itself — only one PR is created (new_branch -> default_branch)",
+        "A new branch is created from the default branch",
+        "A new PR is created from the new branch targeting the default branch",
+        "A worktree is set up for the new branch as normal",
+        "--create-pr flag is silently accepted (no error) when on the default branch",
+        "Existing tests for above with --create-pr on non-default branches still pass",
+        "New tests cover: above on default branch with no PR (no --create-pr), above on default branch with --create-pr (same behavior), above on non-default branch with no PR still errors without --create-pr",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "below on default branch creates PR targeting default branch directly",
+      "description": "As a developer on the default branch with no PR, I want ots below to create a new branch and PR targeting the default branch directly, so that I can start a new stack without a nonsensical self-targeting PR.",
+      "acceptanceCriteria": [
+        "When current branch equals repo.get_default_branch() and no open PR exists, below() skips the create_initial path entirely",
+        "No --create-pr flag is needed when on the default branch",
+        "No initial PR is created for the default branch itself — only one PR is created (new_branch -> default_branch)",
+        "A new branch is created from the default branch",
+        "A new PR is created from the new branch targeting the default branch",
+        "No PR retargeting occurs (there is no existing PR to retarget)",
+        "A worktree is set up for the new branch as normal",
+        "--create-pr flag is silently accepted (no error) when on the default branch",
+        "Existing tests for below with --create-pr on non-default branches still pass",
+        "New tests cover: below on default branch with no PR (no --create-pr), below on default branch with --create-pr (same behavior), below on non-default branch with no PR still errors without --create-pr",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Dry-run output reflects simplified flow on default branch",
+      "description": "As a developer, I want the --dry-run output to correctly show the simplified plan when running from the default branch, so I know what will happen.",
+      "acceptanceCriteria": [
+        "ots above --dry-run on the default branch shows: create branch, create worktree, push, create PR targeting default branch",
+        "ots below --dry-run on the default branch shows the same simplified flow",
+        "No mention of creating an initial PR for the default branch in dry-run output",
+        "Current PR shown as (none) in the state section",
+        "New tests cover dry-run output for both above and below on the default branch",
+        "Typecheck passes"
+      ],
+      "priority": 3,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "Interactive mode works correctly on default branch",
+      "description": "As a developer using interactive mode on the default branch, I want the prompts to work correctly without asking about creating an initial PR.",
+      "acceptanceCriteria": [
+        "Interactive mode in main.py on the default branch does NOT prompt about creating a PR for the current branch",
+        "Interactive mode still prompts for branch name, title, worktree path as normal",
+        "The is_interactive check in main.py accounts for the default branch case (no PR needed, so no prompt)",
+        "Typecheck passes"
+      ],
+      "priority": 4,
+      "passes": true,
+      "notes": ""
+    }
+  ]
+}

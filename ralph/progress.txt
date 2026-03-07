@@ -1,0 +1,49 @@
+## Codebase Patterns
+- MockRepository has `_default_branch` field (default "main") for testing default branch behavior
+- Test helpers `_make_repo`, `_make_client`, `_make_pr` in each test file for consistent setup
+- `TrackingCommandRunner` records commands for assertion; use `raise_called_process_error_for` to simulate failures
+- AboveResult/BelowResult are simple dataclasses; making fields optional requires updating type checker assertions in tests
+- Pre-commit hook runs lint, typecheck, and tests automatically
+
+## 2026-03-07 - US-001
+- Implemented: above() on default branch skips initial PR creation, creates new branch + PR targeting default branch directly
+- Files changed:
+  - src/otstack/OtStackClient.py - Added `on_default_branch` flag in above() method
+  - src/otstack/AboveResult.py - Made `current_pr` field optional (`PullRequest | None`)
+  - src/otstack/main.py - Guarded `current_pr.url` print with None check
+  - test/otstack/test_above.py - Added TestAboveDefaultBranch class with 8 tests
+- **Learnings for future iterations:**
+  - When making a field optional in a result dataclass, existing tests that access that field need `assert x is not None` before access to pass typecheck
+  - The `on_default_branch` pattern cleanly separates the default branch case from the `create_initial` case
+  - Line length limit is 88 chars (ruff E501) - keep docstrings concise
+---
+
+## 2026-03-07 - US-002
+- Implemented: below() on default branch skips initial PR creation, no retargeting
+- Files changed:
+  - src/otstack/OtStackClient.py - Added `on_default_branch` flag in below() method
+  - src/otstack/BelowResult.py - Made `original_pr` field optional (`PullRequest | None`)
+  - src/otstack/main.py - Guarded `original_pr.url` print with None check
+  - test/otstack/test_below.py - Added TestBelowDefaultBranch class with 8 tests
+- **Learnings for future iterations:**
+  - below() on default branch sets `original_destination = SimpleBranch(name=current_branch.name)` to correctly fetch and branch from origin/default
+  - Retarget step guarded by `if current_pr is not None`
+---
+
+## 2026-03-07 - US-003
+- Implemented: BelowDryRunResult conditionally shows retarget step; dry-run tests for default branch
+- Files changed:
+  - src/otstack/BelowDryRunResult.py - Retarget step conditional on `current_pr is not None`
+  - test/otstack/test_above.py - Added 2 dry-run default branch tests
+  - test/otstack/test_below.py - Added 2 dry-run default branch tests
+---
+
+## 2026-03-07 - US-004
+- Implemented: Interactive mode skips "Create PR?" prompt when on default branch
+- Files changed:
+  - src/otstack/main.py - Check `cur.name == default_branch` before prompting
+  - test/otstack/test_main.py - Added TestDefaultBranchInteractive with 2 tests
+- **Learnings for future iterations:**
+  - test_main.py uses `_MockOtStackClientContext` for mocking the client context manager
+  - test_main.py patches `sys.argv` and `otstack.main.OtStackClient` for CLI tests
+---

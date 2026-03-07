@@ -77,7 +77,7 @@ Insert a new PR "below" the current PR in a stack. Creates a new branch and PR t
 - `--dry-run, -n` - Show what would happen without making any changes
 
 **No PR behavior:**
-When the current branch has no open PR, below/above will error with a message suggesting `--create-pr`. In interactive mode, the user is prompted to create one. With `--create-pr`, a PR is automatically created using the humanized branch name as title and the repo's default branch as destination.
+When on the default branch with no open PR, below/above skip the initial PR creation entirely and just create the new branch + PR targeting the default branch directly. No `--create-pr` flag is needed (it is silently accepted). When on a non-default branch with no open PR, below/above will error with a message suggesting `--create-pr`. In interactive mode on a non-default branch, the user is prompted to create one. With `--create-pr`, a PR is automatically created using the humanized branch name as title and the repo's default branch as destination.
 
 **Dry run behavior:**
 When `--dry-run` is passed, the command performs all validation checks (which are read-only and safe) and then prints what would happen instead of executing. The output includes:
