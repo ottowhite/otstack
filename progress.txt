@@ -12,6 +12,11 @@
 - `SimpleBranch` can represent remote refs like `origin/main` for `create_branch`
 - `questionary.text()` accepts a `default` parameter to pre-fill the input; user can accept with Enter or type to override
 - Auto-default worktree: in main.py, compute `Path(local_path).resolve().parent / branch` before the interactive check so branch+title skips interactive mode
+- Repository protocol has `get_default_branch() -> str` for determining the repo's default branch
+- MockRepository has `_default_branch: str = "main"` field for testing
+- `BelowDryRunResult.current_pr` and `AboveDryRunResult.current_pr` are `PullRequest | None` - use `assert result.current_pr is not None` before accessing `.title` in tests
+- `OtStackClient._humanize_branch_name()` converts "feature-branch" → "Feature Branch" for auto-generated PR titles
+- When adding `str | None` fields to OtStackClient that are guaranteed non-None in specific branches, use `assert` to narrow for the type checker
 
 ## 2026-03-07 - US-001
 - What was implemented: Fixed `get_branches()` in `PyGitHubRepository` to use `self._git_repo.heads` instead of `self._git_repo.references`, so tags, stash refs, and other non-branch refs are excluded
@@ -151,4 +156,26 @@
   - Wrapping the entire mutation phase in try/except catches both specific re-raised ValueErrors (commit/push) and unexpected exceptions (PR creation, retarget)
   - `MockRepository._raise_on_create_pr` flag causes `create_pr()` to raise `RuntimeError` for testing PR creation failure recovery
   - Recovery message is printed to `self._output`, not included in the exception message - test with `io.StringIO()` passed to `_make_client(output=...)`
+---
+
+## 2026-03-07 - US-011
+- What was implemented: Support below/above when no PR exists for the current branch. Added `--create-pr` flag and interactive prompting. When no PR found: non-interactive mode without flag errors with `--create-pr` hint; non-interactive with `--create-pr` auto-creates PR (pushes branch, creates PR with humanized branch name as title targeting repo default branch); interactive mode prompts user. Dry-run shows initial PR creation as numbered steps before the rest.
+- Files changed:
+  - `src/otstack/Repository.py` - Added `get_default_branch() -> str` to protocol
+  - `src/otstack/PyGitHubRepository.py` - Implemented `get_default_branch()` using `self._gh_repo.default_branch`
+  - `src/otstack/OtStackClient.py` - Added `create_pr: bool = False` to `below()` and `above()`, added `_humanize_branch_name()` static method, handle no-PR case with auto-creation or error
+  - `src/otstack/BelowDryRunResult.py` - Changed `current_pr` to `PullRequest | None`, added `create_initial_pr`, `initial_pr_title`, `initial_pr_destination` fields, updated `format_output()` with dynamic step numbering
+  - `src/otstack/AboveDryRunResult.py` - Same changes as BelowDryRunResult
+  - `src/otstack/main.py` - Added `--create-pr` flag, extracted `_add_below_above_args()` and `_handle_below_above()` helpers, interactive mode checks for PR and prompts via questionary
+  - `test/otstack/helpers/MockRepository.py` - Added `_default_branch: str = "main"` field and `get_default_branch()` method
+  - `test/otstack/test_below.py` - Added `TestBelowCreatePr` class with 8 tests, added `assert current_pr is not None` guards
+  - `test/otstack/test_above.py` - Added `TestAboveCreatePr` class with 8 tests, added `assert current_pr is not None` guards
+  - `test/otstack/test_main.py` - Added `TestBelowCreatePrCommand` class with 2 tests, added `_make_repo_without_pr()` helper, added `import pytest`
+  - `CLAUDE.md` - Added `--create-pr` flag docs and "No PR behavior" section
+- **Learnings for future iterations:**
+  - `PyGithub`'s `Repository.default_branch` gives the repo default branch natively
+  - When making a protocol field optional (`PullRequest | None`), add `assert is not None` in tests that access it, and `assert` in implementation code to narrow the type for the checker
+  - main.py was refactored to extract `_add_below_above_args()` for shared CLI args and `_handle_below_above()` for the command logic - keeps main() focused
+  - Interactive mode PR creation check happens after repo is obtained (inside the `try` block) since it needs access to the repo object
+  - `questionary.confirm()` can be used directly in main.py (not just InteractivePrompter) for one-off prompts
 ---
