@@ -271,34 +271,38 @@ def _handle_below_above(
     create_pr = getattr(args, "create_pr", False)
 
     # In interactive mode, check if PR exists and prompt
+    # (skip on default branch — no PR needed there)
     if is_interactive and not create_pr:
         cur = repo.get_current_branch()
         if cur is not None:
-            prs = repo.get_open_pull_requests()
-            has_pr = any(
-                pr.source_branch.name == cur.name
-                for pr in prs
-            )
-            if not has_pr:
-                import questionary
+            default_branch = repo.get_default_branch()
+            is_default = cur.name == default_branch
+            if not is_default:
+                prs = repo.get_open_pull_requests()
+                has_pr = any(
+                    pr.source_branch.name == cur.name
+                    for pr in prs
+                )
+                if not has_pr:
+                    import questionary
 
-                answer = questionary.confirm(
-                    "No PR found for branch"
-                    f" '{cur.name}'."
-                    " Create one now?",
-                    default=True,
-                ).ask()
-                if answer is None:
-                    raise KeyboardInterrupt()
-                if answer:
-                    create_pr = True
-                else:
-                    print(
-                        "No open PR for"
+                    answer = questionary.confirm(
+                        "No PR found for branch"
                         f" '{cur.name}'."
-                        " Aborting."
-                    )
-                    raise SystemExit(-1)
+                        " Create one now?",
+                        default=True,
+                    ).ask()
+                    if answer is None:
+                        raise KeyboardInterrupt()
+                    if answer:
+                        create_pr = True
+                    else:
+                        print(
+                            "No open PR for"
+                            f" '{cur.name}'."
+                            " Aborting."
+                        )
+                        raise SystemExit(-1)
 
     if args.command == "below":
         result = client.below(

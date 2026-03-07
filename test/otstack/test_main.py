@@ -137,6 +137,92 @@ class TestBelowCreatePrCommand:
             main()
 
 
+class TestDefaultBranchInteractive:
+    def test_below_on_default_branch_no_create_pr_prompt(
+        self, tmp_path
+    ) -> None:
+        """Interactive below on default branch skips PR prompt."""
+        repo = _make_repo_on_default_branch()
+        mock_client = MockGitHubClient(repos=[repo])
+        mock_detector = MockGitRepoDetector(
+            repo_name=None
+        )
+        worktree_path = str(tmp_path / "new-worktree")
+
+        with (
+            patch.object(
+                sys,
+                "argv",
+                [
+                    "otstack",
+                    "below",
+                    "-b",
+                    "feature-a",
+                    "-t",
+                    "Feature A",
+                    "-w",
+                    worktree_path,
+                    "--repo",
+                    "test-user/test-repo",
+                ],
+            ),
+            patch(
+                "otstack.main.OtStackClient",
+                return_value=_make_mock_client_context(
+                    mock_client, mock_detector
+                ),
+            ),
+            patch.object(
+                sys, "stdout", new_callable=StringIO
+            ) as mock_stdout,
+        ):
+            main()
+            output = mock_stdout.getvalue()
+            assert "feature-a" in output
+
+    def test_above_on_default_branch_no_create_pr_prompt(
+        self, tmp_path
+    ) -> None:
+        """Interactive above on default branch skips PR prompt."""
+        repo = _make_repo_on_default_branch()
+        mock_client = MockGitHubClient(repos=[repo])
+        mock_detector = MockGitRepoDetector(
+            repo_name=None
+        )
+        worktree_path = str(tmp_path / "new-worktree")
+
+        with (
+            patch.object(
+                sys,
+                "argv",
+                [
+                    "otstack",
+                    "above",
+                    "-b",
+                    "feature-a",
+                    "-t",
+                    "Feature A",
+                    "-w",
+                    worktree_path,
+                    "--repo",
+                    "test-user/test-repo",
+                ],
+            ),
+            patch(
+                "otstack.main.OtStackClient",
+                return_value=_make_mock_client_context(
+                    mock_client, mock_detector
+                ),
+            ),
+            patch.object(
+                sys, "stdout", new_callable=StringIO
+            ) as mock_stdout,
+        ):
+            main()
+            output = mock_stdout.getvalue()
+            assert "feature-a" in output
+
+
 class TestBelowCommand:
     def test_below_command_prints_summary(self, tmp_path) -> None:
         """below command prints summary with PR URLs and worktree path."""
@@ -284,6 +370,21 @@ def _make_repo_without_pr() -> MockRepository:
         _pull_requests=[],
         _current_branch=MockBranch(name="feature"),
         _working_dir="/tmp/repo",
+    )
+
+
+def _make_repo_on_default_branch() -> MockRepository:
+    """Create a repo on the default branch with no PR."""
+    return MockRepository(
+        name="test-repo",
+        full_name="test-user/test-repo",
+        description="Test repository",
+        private=False,
+        url="https://github.com/test-user/test-repo",
+        _pull_requests=[],
+        _current_branch=MockBranch(name="main"),
+        _working_dir="/tmp/repo",
+        _default_branch="main",
     )
 
 
