@@ -124,3 +124,17 @@
   - `subprocess.CalledProcessError` is already imported in `OtStackClient.py` via `import subprocess` at the top
   - The push step occurs after branch creation and worktree creation, so the error message can list both as already-created artifacts
 ---
+
+## 2026-03-07 - US-009
+- What was implemented: Catch `subprocess.CalledProcessError` on `git commit --allow-empty` in both `below()` and `above()`, re-raise as `ValueError` with human-readable message explaining pre-commit hooks rejected the commit. Added `--no-verify` flag to both CLI commands that passes `--no-verify` to `git commit`.
+- Files changed:
+  - `src/otstack/OtStackClient.py` - Added `no_verify` parameter to `below()` and `above()`, wrapped commit in try/except, conditionally insert `--no-verify` into commit command
+  - `src/otstack/main.py` - Added `--no-verify` argparse flag for both commands, pass through to client calls
+  - `test/otstack/test_below.py` - Added `TestBelowCommitFailure` class with 6 tests: raises ValueError, suggests --no-verify, includes branch name, lists artifacts, --no-verify passes flag, --no-verify=False omits flag
+  - `test/otstack/test_above.py` - Added `TestAboveCommitFailure` class with 6 tests: same coverage as below
+  - `CLAUDE.md` - Added `--no-verify` to optional args for both commands
+- **Learnings for future iterations:**
+  - To catch commit failures separately from push failures with `TrackingCommandRunner`, use `raise_called_process_error_for=["commit"]` - "commit" matches the element in the command list
+  - The commit step occurs after branch creation and worktree creation but before push, so commit failure error lists branch+worktree as already-created
+  - `list.insert(2, "--no-verify")` places the flag after `git commit` but before `--allow-empty`
+---
