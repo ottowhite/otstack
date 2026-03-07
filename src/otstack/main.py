@@ -322,10 +322,11 @@ def _handle_below_above(
                 " below your current PR!"
             )
             print(f"\nNew PR: {result.new_pr.url}")
-            print(
-                "Original PR (retargeted):"
-                f" {result.original_pr.url}"
-            )
+            if result.original_pr is not None:
+                print(
+                    "Original PR (retargeted):"
+                    f" {result.original_pr.url}"
+                )
             print(f"Worktree: {result.worktree_path}")
     elif args.command == "above":
         result = client.above(

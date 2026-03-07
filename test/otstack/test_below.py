@@ -1137,6 +1137,238 @@ class TestBelowCreatePr:
         assert "Created PR for 'feature-branch'" in printed
 
 
+class TestBelowDefaultBranch:
+    """Tests for below() when run from the default branch."""
+
+    def test_below_on_default_branch_no_pr_succeeds(
+        self, tmp_path
+    ) -> None:
+        """below() on default branch with no PR succeeds."""
+        current_branch = MockBranch(name="main")
+        repo = _make_repo(
+            current_branch=current_branch,
+            pull_requests=[],
+            working_dir="/tmp/repo",
+        )
+        command_runner = TrackingCommandRunner()
+        client = _make_client(
+            repos=[repo], command_runner=command_runner
+        )
+        worktree_path = str(tmp_path / "new-worktree")
+
+        from otstack.BelowResult import BelowResult
+
+        result = client.below(
+            repo=repo,
+            new_branch_name="feature-a",
+            pr_title="Feature A",
+            worktree_path=worktree_path,
+        )
+
+        assert isinstance(result, BelowResult)
+        assert result.new_branch.name == "feature-a"
+
+    def test_below_on_default_branch_creates_only_one_pr(
+        self, tmp_path
+    ) -> None:
+        """below() on default branch creates only one PR."""
+        current_branch = MockBranch(name="main")
+        repo = _make_repo(
+            current_branch=current_branch,
+            pull_requests=[],
+            working_dir="/tmp/repo",
+        )
+        command_runner = TrackingCommandRunner()
+        client = _make_client(
+            repos=[repo], command_runner=command_runner
+        )
+        worktree_path = str(tmp_path / "new-worktree")
+
+        client.below(
+            repo=repo,
+            new_branch_name="feature-a",
+            pr_title="Feature A",
+            worktree_path=worktree_path,
+        )
+
+        assert len(repo.created_prs) == 1
+        src, dest, title, _ = repo.created_prs[0]
+        assert src.name == "feature-a"
+        assert dest.name == "main"
+        assert title == "Feature A"
+
+    def test_below_on_default_branch_no_retarget(
+        self, tmp_path
+    ) -> None:
+        """below() on default branch does not retarget any PR."""
+        current_branch = MockBranch(name="main")
+        repo = _make_repo(
+            current_branch=current_branch,
+            pull_requests=[],
+            working_dir="/tmp/repo",
+        )
+        command_runner = TrackingCommandRunner()
+        client = _make_client(
+            repos=[repo], command_runner=command_runner
+        )
+        worktree_path = str(tmp_path / "new-worktree")
+
+        from otstack.BelowResult import BelowResult
+
+        result = client.below(
+            repo=repo,
+            new_branch_name="feature-a",
+            pr_title="Feature A",
+            worktree_path=worktree_path,
+        )
+
+        assert isinstance(result, BelowResult)
+        assert result.original_pr is None
+
+    def test_below_on_default_branch_with_create_pr_flag(
+        self, tmp_path
+    ) -> None:
+        """--create-pr silently accepted on default branch."""
+        current_branch = MockBranch(name="main")
+        repo = _make_repo(
+            current_branch=current_branch,
+            pull_requests=[],
+            working_dir="/tmp/repo",
+        )
+        command_runner = TrackingCommandRunner()
+        client = _make_client(
+            repos=[repo], command_runner=command_runner
+        )
+        worktree_path = str(tmp_path / "new-worktree")
+
+        from otstack.BelowResult import BelowResult
+
+        result = client.below(
+            repo=repo,
+            new_branch_name="feature-a",
+            pr_title="Feature A",
+            worktree_path=worktree_path,
+            create_pr=True,
+        )
+
+        assert isinstance(result, BelowResult)
+        assert len(repo.created_prs) == 1
+
+    def test_below_on_default_branch_does_not_push_default(
+        self, tmp_path
+    ) -> None:
+        """below() on default branch does not push default."""
+        current_branch = MockBranch(name="main")
+        repo = _make_repo(
+            current_branch=current_branch,
+            pull_requests=[],
+            working_dir="/tmp/repo",
+        )
+        command_runner = TrackingCommandRunner()
+        client = _make_client(
+            repos=[repo], command_runner=command_runner
+        )
+        worktree_path = str(tmp_path / "new-worktree")
+
+        client.below(
+            repo=repo,
+            new_branch_name="feature-a",
+            pr_title="Feature A",
+            worktree_path=worktree_path,
+        )
+
+        push_cmds = [
+            cmd
+            for cmd, _ in command_runner.commands
+            if "push" in cmd
+        ]
+        assert len(push_cmds) == 1
+        assert "feature-a" in push_cmds[0]
+
+    def test_non_default_branch_no_pr_still_errors(
+        self,
+    ) -> None:
+        """below() on non-default branch still errors."""
+        current_branch = MockBranch(name="feature-a")
+        repo = _make_repo(
+            current_branch=current_branch,
+            pull_requests=[],
+        )
+        client = _make_client(repos=[repo])
+
+        with pytest.raises(
+            ValueError, match="No open PR found"
+        ):
+            client.below(
+                repo=repo,
+                new_branch_name="feature-b",
+                pr_title="Feature B",
+                worktree_path="/tmp/project-feature-b",
+            )
+
+    def test_below_on_default_branch_fetches_default(
+        self, tmp_path
+    ) -> None:
+        """below() on default branch fetches origin/default."""
+        current_branch = MockBranch(name="main")
+        repo = _make_repo(
+            current_branch=current_branch,
+            pull_requests=[],
+            working_dir="/tmp/repo",
+        )
+        command_runner = TrackingCommandRunner()
+        client = _make_client(
+            repos=[repo], command_runner=command_runner
+        )
+        worktree_path = str(tmp_path / "new-worktree")
+
+        client.below(
+            repo=repo,
+            new_branch_name="feature-a",
+            pr_title="Feature A",
+            worktree_path=worktree_path,
+        )
+
+        fetch_cmds = [
+            cmd
+            for cmd, _ in command_runner.commands
+            if "fetch" in cmd
+        ]
+        assert len(fetch_cmds) == 1
+        assert "main" in fetch_cmds[0]
+
+    def test_below_on_custom_default_branch(
+        self, tmp_path
+    ) -> None:
+        """below() works with non-main default branch."""
+        current_branch = MockBranch(name="develop")
+        repo = _make_repo(
+            current_branch=current_branch,
+            pull_requests=[],
+            working_dir="/tmp/repo",
+        )
+        repo._default_branch = "develop"
+        command_runner = TrackingCommandRunner()
+        client = _make_client(
+            repos=[repo], command_runner=command_runner
+        )
+        worktree_path = str(tmp_path / "new-worktree")
+
+        from otstack.BelowResult import BelowResult
+
+        result = client.below(
+            repo=repo,
+            new_branch_name="feature-a",
+            pr_title="Feature A",
+            worktree_path=worktree_path,
+        )
+
+        assert isinstance(result, BelowResult)
+        assert len(repo.created_prs) == 1
+        src, dest, _, _ = repo.created_prs[0]
+        assert dest.name == "develop"
+
+
 class TestBelowPushFailure:
     def test_push_failure_raises_value_error(self, tmp_path) -> None:
         """below() raises ValueError with clear message on push failure."""
