@@ -262,7 +262,7 @@ class TestBelowCommand:
     def test_below_auto_defaults_worktree_from_branch(
         self, tmp_path
     ) -> None:
-        """below auto-defaults worktree to ../<branch> when omitted."""
+        """below auto-defaults worktree to ../<repo>-worktrees/<branch> when omitted."""
         repo = _make_repo_with_pr()
         mock_client = MockGitHubClient(repos=[repo])
         mock_detector = MockGitRepoDetector(repo_name=None)

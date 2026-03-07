@@ -50,6 +50,7 @@ class InteractivePrompter:
         branch: str | None = None,
         title: str | None = None,
         worktree: str | None = None,
+        repo_dir_name: str | None = None,
     ) -> BelowAboveInputs:
         """Prompt the user for inputs needed for below/above commands.
 
@@ -76,7 +77,13 @@ class InteractivePrompter:
             title = title_input.strip()
 
         if worktree is None:
-            default_worktree = f"../{branch}"
+            if repo_dir_name:
+                default_worktree = (
+                    f"../{repo_dir_name}-worktrees"
+                    f"/{branch}"
+                )
+            else:
+                default_worktree = f"../{branch}"
             worktree_input = questionary.text(
                 "Worktree path:",
                 default=default_worktree,

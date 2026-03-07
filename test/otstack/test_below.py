@@ -1519,10 +1519,10 @@ class TestBelowPushFailure:
                 worktree_path=worktree_path,
             )
 
-    def test_push_failure_prints_recovery_message(
+    def test_push_failure_auto_recovers(
         self, tmp_path
     ) -> None:
-        """Push failure prints recovery with undo commands."""
+        """Push failure executes undo commands automatically."""
         current_branch = MockBranch(name="feature-branch")
         pr = _make_pr(
             source_branch="feature-branch",
@@ -1552,12 +1552,19 @@ class TestBelowPushFailure:
                 worktree_path=worktree_path,
             )
 
-        printed = output.getvalue()
-        assert "git branch -D prep-work" in printed
+        undo_cmds = [
+            cmd for cmd, _ in command_runner.commands
+        ]
         assert (
-            f"git worktree remove {worktree_path}"
-            in printed
+            ["git", "worktree", "remove", worktree_path]
+            in undo_cmds
         )
+        assert (
+            ["git", "branch", "-D", "prep-work"]
+            in undo_cmds
+        )
+        printed = output.getvalue()
+        assert "Undone:" in printed
 
 
 class TestBelowCommitFailure:
@@ -1653,10 +1660,10 @@ class TestBelowCommitFailure:
                 worktree_path=worktree_path,
             )
 
-    def test_commit_failure_prints_recovery_message(
+    def test_commit_failure_auto_recovers(
         self, tmp_path
     ) -> None:
-        """Commit failure prints recovery with undo commands."""
+        """Commit failure executes undo commands automatically."""
         current_branch = MockBranch(name="feature-branch")
         pr = _make_pr(
             source_branch="feature-branch",
@@ -1686,12 +1693,19 @@ class TestBelowCommitFailure:
                 worktree_path=worktree_path,
             )
 
-        printed = output.getvalue()
-        assert "git branch -D prep-work" in printed
+        undo_cmds = [
+            cmd for cmd, _ in command_runner.commands
+        ]
         assert (
-            f"git worktree remove {worktree_path}"
-            in printed
+            ["git", "worktree", "remove", worktree_path]
+            in undo_cmds
         )
+        assert (
+            ["git", "branch", "-D", "prep-work"]
+            in undo_cmds
+        )
+        printed = output.getvalue()
+        assert "Undone:" in printed
 
     def test_no_verify_passes_flag_to_git_commit(
         self, tmp_path
@@ -1767,10 +1781,10 @@ class TestBelowCommitFailure:
 
 
 class TestBelowRecovery:
-    def test_push_failure_recovery_lists_undo_commands(
+    def test_push_failure_recovery_undoes_in_reverse(
         self, tmp_path
     ) -> None:
-        """Push failure recovery lists branch and worktree undo."""
+        """Push failure undoes steps in reverse order."""
         current_branch = MockBranch(name="feature-branch")
         pr = _make_pr(
             source_branch="feature-branch",
@@ -1800,18 +1814,25 @@ class TestBelowRecovery:
                 worktree_path=worktree_path,
             )
 
+        undo_cmds = [
+            cmd for cmd, _ in command_runner.commands
+        ]
+        # Worktree remove should come before branch delete
+        # (reverse of creation order)
+        wt_idx = undo_cmds.index(
+            ["git", "worktree", "remove", worktree_path]
+        )
+        br_idx = undo_cmds.index(
+            ["git", "branch", "-D", "prep-work"]
+        )
+        assert wt_idx < br_idx
         printed = output.getvalue()
         assert "Recovery:" in printed
-        assert "git branch -D prep-work" in printed
-        assert (
-            f"git worktree remove {worktree_path}"
-            in printed
-        )
 
     def test_pr_creation_failure_recovery_includes_push(
         self, tmp_path
     ) -> None:
-        """PR creation failure recovery includes push undo."""
+        """PR creation failure recovery undoes push too."""
         current_branch = MockBranch(name="feature-branch")
         pr = _make_pr(
             source_branch="feature-branch",
@@ -1840,17 +1861,64 @@ class TestBelowRecovery:
                 worktree_path=worktree_path,
             )
 
+        undo_cmds = [
+            cmd for cmd, _ in command_runner.commands
+        ]
+        assert (
+            [
+                "git", "push", "origin", "--delete",
+                "prep-work",
+            ]
+            in undo_cmds
+        )
+        assert (
+            ["git", "worktree", "remove", worktree_path]
+            in undo_cmds
+        )
+        assert (
+            ["git", "branch", "-D", "prep-work"]
+            in undo_cmds
+        )
+
+    def test_undo_failure_prints_manual_fallback(
+        self, tmp_path
+    ) -> None:
+        """When an undo command fails, print WARNING and manual command."""
+        current_branch = MockBranch(name="feature-branch")
+        pr = _make_pr(
+            source_branch="feature-branch",
+            destination_branch="main",
+        )
+        repo = _make_repo(
+            current_branch=current_branch,
+            pull_requests=[pr],
+            working_dir="/tmp/repo",
+            raise_on_create_pr=True,
+        )
+        command_runner = TrackingCommandRunner(
+            raise_called_process_error_for=[
+                "worktree", "--delete",
+            ],
+        )
+        output = io.StringIO()
+        client = _make_client(
+            repos=[repo],
+            command_runner=command_runner,
+            output=output,
+        )
+        worktree_path = str(tmp_path / "new-worktree")
+
+        with pytest.raises(RuntimeError):
+            client.below(
+                repo=repo,
+                new_branch_name="prep-work",
+                pr_title="Preparatory refactor",
+                worktree_path=worktree_path,
+            )
+
         printed = output.getvalue()
-        assert "Recovery:" in printed
-        assert "git branch -D prep-work" in printed
-        assert (
-            f"git worktree remove {worktree_path}"
-            in printed
-        )
-        assert (
-            "git push origin --delete prep-work"
-            in printed
-        )
+        assert "WARNING" in printed
+        assert "Run manually:" in printed
 
 
 class TestBelowDirenv:

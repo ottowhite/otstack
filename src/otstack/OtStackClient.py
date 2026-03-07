@@ -565,7 +565,7 @@ class OtStackClient:
                 draft=draft,
             )
 
-        completed_steps: list[tuple[str, str]] = []
+        completed_steps: list[tuple[str, list[str]]] = []
         current_pr: PullRequest | None = None
         try:
             working_dir = repo.get_working_dir()
@@ -635,14 +635,17 @@ class OtStackClient:
             )
             completed_steps.append((
                 f"Created branch '{new_branch_name}'",
-                f"git branch -D {new_branch_name}",
+                ["git", "branch", "-D", new_branch_name],
             ))
 
             # Create worktree for the new branch
             repo.create_worktree(new_branch, worktree_path)
             completed_steps.append((
                 f"Created worktree at '{worktree_path}'",
-                f"git worktree remove {worktree_path}",
+                [
+                    "git", "worktree", "remove",
+                    worktree_path,
+                ],
             ))
 
             # Copy files first (before direnv)
@@ -721,8 +724,10 @@ class OtStackClient:
                 )
             completed_steps.append((
                 f"Pushed '{new_branch_name}' to origin",
-                f"git push origin --delete"
-                f" {new_branch_name}",
+                [
+                    "git", "push", "origin", "--delete",
+                    new_branch_name,
+                ],
             ))
 
             # Create PR from new branch to original dest
@@ -746,8 +751,8 @@ class OtStackClient:
             )
         except Exception:
             if completed_steps:
-                self._print_recovery_message(
-                    completed_steps
+                self._auto_recover(
+                    completed_steps, working_dir
                 )
             raise
 
@@ -884,16 +889,17 @@ class OtStackClient:
                 draft=draft,
             )
 
-        completed_steps: list[tuple[str, str]] = []
+        completed_steps: list[tuple[str, list[str]]] = []
         current_pr: PullRequest | None = None
         try:
+            working_dir = repo.get_working_dir()
+
             if on_default_branch:
                 pass  # No initial PR needed
             elif create_initial:
                 assert initial_dest is not None
                 assert initial_title is not None
                 # Push current branch and create initial PR
-                working_dir = repo.get_working_dir()
                 try:
                     self._command_runner.run(
                         [
@@ -931,22 +937,24 @@ class OtStackClient:
             )
             completed_steps.append((
                 f"Created branch '{new_branch_name}'",
-                f"git branch -D {new_branch_name}",
+                ["git", "branch", "-D", new_branch_name],
             ))
 
             # Create worktree for the new branch
             repo.create_worktree(new_branch, worktree_path)
             completed_steps.append((
                 f"Created worktree at '{worktree_path}'",
-                f"git worktree remove {worktree_path}",
+                [
+                    "git", "worktree", "remove",
+                    worktree_path,
+                ],
             ))
 
             # Copy files first (before direnv)
             if copy_files:
-                current_working_dir = repo.get_working_dir()
                 for file_path in copy_files:
                     src = (
-                        Path(current_working_dir) / file_path
+                        Path(working_dir) / file_path
                     )
                     dst = Path(worktree_path) / file_path
                     if src.exists():
@@ -1020,8 +1028,10 @@ class OtStackClient:
                 )
             completed_steps.append((
                 f"Pushed '{new_branch_name}' to origin",
-                f"git push origin --delete"
-                f" {new_branch_name}",
+                [
+                    "git", "push", "origin", "--delete",
+                    new_branch_name,
+                ],
             ))
 
             # Create PR from new branch to current branch
@@ -1040,31 +1050,36 @@ class OtStackClient:
             )
         except Exception:
             if completed_steps:
-                self._print_recovery_message(
-                    completed_steps
+                self._auto_recover(
+                    completed_steps, working_dir
                 )
             raise
 
-    def _print_recovery_message(
+    def _auto_recover(
         self,
-        completed_steps: list[tuple[str, str]],
+        completed_steps: list[tuple[str, list[str]]],
+        working_dir: str,
     ) -> None:
-        """Print recovery guidance listing completed steps and undo commands."""
+        """Automatically undo completed steps in reverse order."""
         self._output.write(
-            "\nRecovery: the following steps were "
-            "completed before the failure:\n"
+            "\nRecovery: undoing completed steps...\n"
         )
-        for i, (description, undo_cmd) in enumerate(
-            completed_steps, start=1
+        for description, undo_cmd in reversed(
+            completed_steps
         ):
-            if undo_cmd:
-                self._output.write(
-                    f"  {i}. {description}\n"
-                    f"     undo: {undo_cmd}\n"
+            try:
+                self._command_runner.run(
+                    undo_cmd, cwd=working_dir
                 )
-            else:
                 self._output.write(
-                    f"  {i}. {description}\n"
+                    f"  Undone: {description}\n"
+                )
+            except Exception:
+                self._output.write(
+                    f"  WARNING: Failed to undo:"
+                    f" {description}\n"
+                    f"    Run manually:"
+                    f" {' '.join(undo_cmd)}\n"
                 )
 
     @property

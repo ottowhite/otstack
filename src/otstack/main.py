@@ -108,19 +108,27 @@ def main() -> None:
             and args.branch is not None
         ):
             local_path = args.path or "."
+            resolved = Path(local_path).resolve()
+            repo_dir_name = resolved.name
             args.worktree = str(
-                Path(local_path).resolve().parent
+                resolved.parent
+                / f"{repo_dir_name}-worktrees"
                 / args.branch
             )
 
         if not all([args.branch, args.title, args.worktree]):
             is_interactive = True
+            local_path = args.path or "."
+            repo_dir_name = (
+                Path(local_path).resolve().name
+            )
             prompter = InteractivePrompter()
             inputs = prompter.prompt_below_above_inputs(
                 args.command,
                 branch=args.branch,
                 title=args.title,
                 worktree=args.worktree,
+                repo_dir_name=repo_dir_name,
             )
             args.branch = inputs.branch
             args.title = inputs.title
