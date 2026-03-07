@@ -1,4 +1,5 @@
 import argparse
+from pathlib import Path
 
 from otstack.AboveDryRunResult import AboveDryRunResult
 from otstack.BelowDryRunResult import BelowDryRunResult
@@ -180,6 +181,13 @@ def main() -> None:
 
     # Handle interactive prompts for below/above when required args are missing
     if args.command in ("below", "above"):
+        # Auto-default worktree path from branch name
+        if args.worktree is None and args.branch is not None:
+            local_path = args.path or "."
+            args.worktree = str(
+                Path(local_path).resolve().parent / args.branch
+            )
+
         if not all([args.branch, args.title, args.worktree]):
             prompter = InteractivePrompter()
             inputs = prompter.prompt_below_above_inputs(

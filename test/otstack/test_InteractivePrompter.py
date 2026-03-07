@@ -214,3 +214,124 @@ class TestPromptBelowAboveInputsPrefilledValues:
         assert "Branch name:" in calls
         assert "PR title:" in calls
         assert "Worktree path:" in calls
+
+
+class TestWorktreeDefaultFromBranch:
+    """Tests that worktree prompt shows default path from branch."""
+
+    def _mock_ask(self, return_value):
+        class MockQuestion:
+            def ask(self):
+                return return_value
+
+        return MockQuestion()
+
+    def test_worktree_default_from_prefilled_branch(self) -> None:
+        """Worktree prompt shows ../branch as default when branch
+        is pre-filled."""
+        prompter = InteractivePrompter()
+        defaults: dict[str, str] = {}
+
+        def fake_text(prompt, **kwargs):
+            if "default" in kwargs:
+                defaults[prompt] = kwargs["default"]
+            if "title" in prompt.lower():
+                return self._mock_ask("Title")
+            if "worktree" in prompt.lower():
+                return self._mock_ask(kwargs.get("default", ""))
+            return self._mock_ask("")
+
+        def fake_confirm(prompt, **kwargs):
+            return self._mock_ask(False)
+
+        with (
+            patch(f"{_MOD}.text", side_effect=fake_text),
+            patch(f"{_MOD}.confirm", side_effect=fake_confirm),
+        ):
+            inputs = prompter.prompt_below_above_inputs(
+                "below", branch="my-feature"
+            )
+
+        assert defaults["Worktree path:"] == "../my-feature"
+        assert inputs.worktree == "../my-feature"
+
+    def test_worktree_default_from_prompted_branch(self) -> None:
+        """Worktree prompt shows ../branch as default when branch
+        was entered interactively."""
+        prompter = InteractivePrompter()
+        defaults: dict[str, str] = {}
+
+        def fake_text(prompt, **kwargs):
+            if "default" in kwargs:
+                defaults[prompt] = kwargs["default"]
+            if "branch" in prompt.lower():
+                return self._mock_ask("new-feat")
+            if "title" in prompt.lower():
+                return self._mock_ask("Title")
+            if "worktree" in prompt.lower():
+                return self._mock_ask(kwargs.get("default", ""))
+            return self._mock_ask("")
+
+        def fake_confirm(prompt, **kwargs):
+            return self._mock_ask(False)
+
+        with (
+            patch(f"{_MOD}.text", side_effect=fake_text),
+            patch(f"{_MOD}.confirm", side_effect=fake_confirm),
+        ):
+            inputs = prompter.prompt_below_above_inputs("above")
+
+        assert defaults["Worktree path:"] == "../new-feat"
+        assert inputs.worktree == "../new-feat"
+
+    def test_worktree_default_can_be_overridden(self) -> None:
+        """User can type a custom path instead of accepting default."""
+        prompter = InteractivePrompter()
+
+        def fake_text(prompt, **kwargs):
+            if "title" in prompt.lower():
+                return self._mock_ask("Title")
+            if "worktree" in prompt.lower():
+                return self._mock_ask("/custom/path")
+            return self._mock_ask("")
+
+        def fake_confirm(prompt, **kwargs):
+            return self._mock_ask(False)
+
+        with (
+            patch(f"{_MOD}.text", side_effect=fake_text),
+            patch(f"{_MOD}.confirm", side_effect=fake_confirm),
+        ):
+            inputs = prompter.prompt_below_above_inputs(
+                "below", branch="my-feat"
+            )
+
+        assert inputs.worktree == "/custom/path"
+
+    def test_prefilled_worktree_skips_default(self) -> None:
+        """When worktree is pre-filled, no default is computed."""
+        prompter = InteractivePrompter()
+        defaults: dict[str, str] = {}
+
+        def fake_text(prompt, **kwargs):
+            if "default" in kwargs:
+                defaults[prompt] = kwargs["default"]
+            if "title" in prompt.lower():
+                return self._mock_ask("Title")
+            return self._mock_ask("")
+
+        def fake_confirm(prompt, **kwargs):
+            return self._mock_ask(False)
+
+        with (
+            patch(f"{_MOD}.text", side_effect=fake_text),
+            patch(f"{_MOD}.confirm", side_effect=fake_confirm),
+        ):
+            inputs = prompter.prompt_below_above_inputs(
+                "below",
+                branch="feat",
+                worktree="/explicit/path",
+            )
+
+        assert "Worktree path:" not in defaults
+        assert inputs.worktree == "/explicit/path"

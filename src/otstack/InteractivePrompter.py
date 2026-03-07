@@ -75,8 +75,10 @@ class InteractivePrompter:
             title = title_input.strip()
 
         if worktree is None:
+            default_worktree = f"../{branch}"
             worktree_input = questionary.text(
                 "Worktree path:",
+                default=default_worktree,
                 validate=_validate_non_empty,
             ).ask()
             if worktree_input is None:

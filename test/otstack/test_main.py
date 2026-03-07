@@ -88,6 +88,83 @@ class TestBelowCommand:
             assert "prep-work" in output
             assert worktree_path in output
 
+    def test_below_auto_defaults_worktree_from_branch(
+        self, tmp_path
+    ) -> None:
+        """below auto-defaults worktree to ../<branch> when omitted."""
+        repo = _make_repo_with_pr()
+        mock_client = MockGitHubClient(repos=[repo])
+        mock_detector = MockGitRepoDetector(repo_name=None)
+
+        with (
+            patch.object(
+                sys,
+                "argv",
+                [
+                    "otstack",
+                    "below",
+                    "-b",
+                    "prep-work",
+                    "-t",
+                    "Preparatory refactor",
+                    "--repo",
+                    "test-user/test-repo",
+                ],
+            ),
+            patch(
+                "otstack.main.OtStackClient",
+                return_value=_make_mock_client_context(
+                    mock_client, mock_detector
+                ),
+            ),
+            patch.object(
+                sys, "stdout", new_callable=StringIO
+            ) as mock_stdout,
+        ):
+            main()
+            output = mock_stdout.getvalue()
+            assert "prep-work" in output
+
+    def test_below_explicit_worktree_overrides_default(
+        self, tmp_path
+    ) -> None:
+        """Explicit --worktree overrides auto-default."""
+        repo = _make_repo_with_pr()
+        mock_client = MockGitHubClient(repos=[repo])
+        mock_detector = MockGitRepoDetector(repo_name=None)
+        custom_path = str(tmp_path / "custom-wt")
+
+        with (
+            patch.object(
+                sys,
+                "argv",
+                [
+                    "otstack",
+                    "below",
+                    "-b",
+                    "prep-work",
+                    "-t",
+                    "Preparatory refactor",
+                    "-w",
+                    custom_path,
+                    "--repo",
+                    "test-user/test-repo",
+                ],
+            ),
+            patch(
+                "otstack.main.OtStackClient",
+                return_value=_make_mock_client_context(
+                    mock_client, mock_detector
+                ),
+            ),
+            patch.object(
+                sys, "stdout", new_callable=StringIO
+            ) as mock_stdout,
+        ):
+            main()
+            output = mock_stdout.getvalue()
+            assert custom_path in output
+
 
 # Test helpers
 
