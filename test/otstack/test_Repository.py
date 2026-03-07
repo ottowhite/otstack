@@ -198,6 +198,65 @@ class TestPyGitHubRepositoryGetLocalBranches:
             assert isinstance(branch, LocalBranch)
 
 
+class TestPyGitHubRepositoryGetBranches:
+    def test_returns_empty_when_no_git_repo(self) -> None:
+        """get_branches() returns empty list when _git_repo is None."""
+        repo = _make_pygithub_repo(git_repo=None)
+
+        result = repo.get_branches()
+
+        assert result == []
+
+    def test_returns_only_actual_branches(self, tmp_path) -> None:
+        """get_branches() returns branches but not tags or other refs."""
+        git_repo = Repo.init(tmp_path)
+        (tmp_path / "file.txt").write_text("content")
+        git_repo.index.add(["file.txt"])
+        git_repo.index.commit("Initial commit")
+        git_repo.git.branch("feature-1")
+        repo = _make_pygithub_repo(git_repo=git_repo)
+
+        result = repo.get_branches()
+
+        branch_names = {b.name for b in result}
+        assert "master" in branch_names
+        assert "feature-1" in branch_names
+        assert len(result) == 2
+
+    def test_tag_does_not_appear_as_branch(self, tmp_path) -> None:
+        """A tag does not trigger 'already exists' for a branch."""
+        git_repo = Repo.init(tmp_path)
+        (tmp_path / "file.txt").write_text("content")
+        git_repo.index.add(["file.txt"])
+        git_repo.index.commit("Initial commit")
+        # Create a tag named "prep-work" (same name as a potential branch)
+        git_repo.create_tag("prep-work")
+        repo = _make_pygithub_repo(git_repo=git_repo)
+
+        result = repo.get_branches()
+
+        branch_names = {b.name for b in result}
+        assert "prep-work" not in branch_names
+        assert "master" in branch_names
+
+    def test_stash_ref_does_not_appear_as_branch(self, tmp_path) -> None:
+        """Stash refs are not returned by get_branches()."""
+        git_repo = Repo.init(tmp_path)
+        (tmp_path / "file.txt").write_text("content")
+        git_repo.index.add(["file.txt"])
+        git_repo.index.commit("Initial commit")
+        # Create a stash entry
+        (tmp_path / "file.txt").write_text("modified")
+        git_repo.git.stash()
+        repo = _make_pygithub_repo(git_repo=git_repo)
+
+        result = repo.get_branches()
+
+        branch_names = {b.name for b in result}
+        assert not any("stash" in name for name in branch_names)
+        assert "master" in branch_names
+
+
 class TestPyGitHubRepositoryCreateBranch:
     def test_raises_value_error_when_no_git_repo(self) -> None:
         """create_branch() raises ValueError when _git_repo is None."""

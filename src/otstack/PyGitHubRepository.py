@@ -102,11 +102,10 @@ class PyGitHubRepository(Repository):
             local_branch_map[branch.name] = branch
 
         branches: list[Branch] = []
-        for ref in self._git_repo.references:
-            if hasattr(ref, "name") and not ref.name.startswith("origin/"):
-                # Use LocalBranch if checked out locally, otherwise SimpleBranch
-                branch = local_branch_map.get(ref.name, SimpleBranch(name=ref.name))
-                branches.append(branch)
+        for head in self._git_repo.heads:
+            # Use LocalBranch if checked out locally, otherwise SimpleBranch
+            branch = local_branch_map.get(head.name, SimpleBranch(name=head.name))
+            branches.append(branch)
         return branches
 
     def get_local_branches(self) -> list[Branch]:
