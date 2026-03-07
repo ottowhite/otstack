@@ -5,6 +5,11 @@
 - Pre-commit hooks run lint, typecheck, and tests automatically
 - Mock classes live in `test/otstack/helpers/` (MockBranch, MockRepository, MockPullRequest, etc.)
 - `TrackingCommandRunner` in test helpers tracks commands for verification
+- GitPython's `repo.remote().refs` gives remote refs; use `ref.remote_head` to get branch name (excludes "HEAD" manually)
+- `_make_repo()` in test_below.py and test_above.py accepts `remote_branches` parameter for MockRepository
+- MockRepository has `_remote_branches: Sequence[str]` field for remote branch testing
+- Non-dry-run `below()`/`above()` tests need `working_dir` in MockRepository (for git fetch step)
+- `SimpleBranch` can represent remote refs like `origin/main` for `create_branch`
 
 ## 2026-03-07 - US-001
 - What was implemented: Fixed `get_branches()` in `PyGitHubRepository` to use `self._git_repo.heads` instead of `self._git_repo.references`, so tags, stash refs, and other non-branch refs are excluded
@@ -15,4 +20,33 @@
   - GitPython's `repo.references` includes ALL refs (branches, tags, stash, notes, etc.) - always use `repo.heads` for branches only
   - The `hasattr(ref, "name")` check in the old code was unnecessary since all refs have names
   - Tests using real git repos (via `tmp_path`) are in `test_Repository.py`, while mock-based tests are in `test_below.py`/`test_above.py`
+---
+
+## 2026-03-07 - US-002
+- What was implemented: Added `get_remote_branches()` to check remote branch existence in below/above validation
+- Files changed:
+  - `src/otstack/Repository.py` - Added `get_remote_branches()` to protocol
+  - `src/otstack/PyGitHubRepository.py` - Implemented `get_remote_branches()` using `self._git_repo.remote().refs`
+  - `src/otstack/OtStackClient.py` - Added remote branch check in both `below()` and `above()` validation
+  - `test/otstack/helpers/MockRepository.py` - Added `_remote_branches` field and `get_remote_branches()` method
+  - `test/otstack/test_below.py` - Added 3 tests: remote-only exists, both exist, neither exists
+  - `test/otstack/test_above.py` - Added 3 tests: remote-only exists, both exist, neither exists
+  - `test/otstack/test_Repository.py` - Added `TestPyGitHubRepositoryGetRemoteBranches` with 3 tests using real cloned repos
+- **Learnings for future iterations:**
+  - To test remote branches with real git, create a bare repo and clone it - then push branches to get remote refs
+  - `ref.remote_head` gives the branch name without the `origin/` prefix
+  - The "HEAD" symbolic ref in remote refs must be filtered out explicitly
+---
+
+## 2026-03-07 - US-003
+- What was implemented: Added `git fetch origin <destination>` before creating branch in `below()`, and updated branch creation to use `origin/<destination>` instead of the local ref
+- Files changed:
+  - `src/otstack/OtStackClient.py` - Added fetch command before `create_branch`, changed from_branch to `SimpleBranch(name=f"origin/{dest}")`, imported `SimpleBranch`
+  - `src/otstack/BelowDryRunResult.py` - Added fetch step as step 1 in `format_output()`, renumbered subsequent steps (now starts at step 4 instead of 3)
+  - `test/otstack/test_below.py` - Added `test_fetches_remote_before_creating_branch` and `test_creates_new_branch_from_origin_destination`, added `working_dir="/tmp/repo"` to all non-dry-run tests, updated dry-run format test to check for fetch step
+  - `test/otstack/test_main.py` - Added `_working_dir="/tmp/repo"` to `_make_repo_with_pr()` fixture
+- **Learnings for future iterations:**
+  - `below()` now calls `repo.get_working_dir()` before the mutation phase, so all non-dry-run tests must provide `working_dir` to MockRepository
+  - `SimpleBranch` can be used as a ref for `create_branch` - the implementation just uses `from_branch.name` in `git branch <name> <ref>`, so `origin/main` works fine
+  - When adding new steps that require repo info (like working_dir), check all test helpers and test_main.py fixtures too
 ---
