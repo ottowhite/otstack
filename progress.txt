@@ -10,6 +10,8 @@
 - MockRepository has `_remote_branches: Sequence[str]` field for remote branch testing
 - Non-dry-run `below()`/`above()` tests need `working_dir` in MockRepository (for git fetch step)
 - `SimpleBranch` can represent remote refs like `origin/main` for `create_branch`
+- `questionary.text()` accepts a `default` parameter to pre-fill the input; user can accept with Enter or type to override
+- Auto-default worktree: in main.py, compute `Path(local_path).resolve().parent / branch` before the interactive check so branch+title skips interactive mode
 
 ## 2026-03-07 - US-001
 - What was implemented: Fixed `get_branches()` in `PyGitHubRepository` to use `self._git_repo.heads` instead of `self._git_repo.references`, so tags, stash refs, and other non-branch refs are excluded
@@ -61,4 +63,17 @@
   - Use `_MOD = "otstack.InteractivePrompter.questionary"` constant to keep patch paths under 88 chars
   - Mock questionary by creating a `MockQuestion` class with `.ask()` method, and use `side_effect` on `questionary.text`/`questionary.confirm` to return them
   - Track which prompts were called via a `calls: list[str]` that captures prompt text in the `side_effect` function
+---
+
+## 2026-03-07 - US-005
+- What was implemented: Auto-default worktree path from branch name. When `--worktree` is omitted and `--branch` is provided, worktree defaults to `../<branch-name>` (resolved as an absolute path relative to the repo working directory). Interactive mode shows the default in the worktree prompt via `questionary.text(default=...)`.
+- Files changed:
+  - `src/otstack/main.py` - Added `from pathlib import Path` import, auto-default worktree before interactive check
+  - `src/otstack/InteractivePrompter.py` - Added `default=f"../{branch}"` to worktree `questionary.text()` call
+  - `test/otstack/test_InteractivePrompter.py` - Added `TestWorktreeDefaultFromBranch` class with 4 tests: default from pre-filled branch, default from prompted branch, override default, pre-filled worktree skips default
+  - `test/otstack/test_main.py` - Added 2 tests: auto-default worktree from branch, explicit worktree overrides default
+- **Learnings for future iterations:**
+  - `questionary.text(default=value)` pre-fills the input so user can accept with Enter
+  - To track kwargs passed to mocked `questionary.text()`, use `defaults: dict[str, str]` and capture `kwargs["default"]` in the side_effect
+  - Can't mock `otstack.main.os.path.exists` because main.py doesn't import `os` directly - the `os.path.exists` check is in OtStackClient
 ---
