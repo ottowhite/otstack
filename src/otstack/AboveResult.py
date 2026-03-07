@@ -10,5 +10,5 @@ class AboveResult:
 
     new_branch: Branch
     new_pr: PullRequest
-    current_pr: PullRequest
+    current_pr: PullRequest | None
     worktree_path: str

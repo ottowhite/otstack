@@ -31,6 +31,7 @@ class TestAboveResult:
 
         assert result.new_branch.name == "feature-b"
         assert result.new_pr.source_branch.name == "feature-b"
+        assert result.current_pr is not None
         assert result.current_pr.source_branch.name == "feature-a"
         assert result.worktree_path == "/tmp/new-worktree"
 
@@ -803,6 +804,229 @@ class TestAboveCreatePr:
 
         printed = output.getvalue()
         assert "Created PR for 'feature-a'" in printed
+
+
+class TestAboveDefaultBranch:
+    """Tests for above() when run from the default branch with no PR."""
+
+    def test_above_on_default_branch_no_pr_succeeds(
+        self, tmp_path
+    ) -> None:
+        """above() on default branch with no PR succeeds without --create-pr."""
+        current_branch = MockBranch(name="main")
+        repo = _make_repo(
+            current_branch=current_branch,
+            pull_requests=[],
+            working_dir="/tmp/repo",
+        )
+        command_runner = TrackingCommandRunner()
+        client = _make_client(
+            repos=[repo], command_runner=command_runner
+        )
+        worktree_path = str(tmp_path / "new-worktree")
+
+        result = client.above(
+            repo=repo,
+            new_branch_name="feature-a",
+            pr_title="Feature A",
+            worktree_path=worktree_path,
+        )
+
+        assert isinstance(result, AboveResult)
+        assert result.new_branch.name == "feature-a"
+
+    def test_above_on_default_branch_creates_only_one_pr(
+        self, tmp_path
+    ) -> None:
+        """above() on default branch creates only the new PR, no initial PR."""
+        current_branch = MockBranch(name="main")
+        repo = _make_repo(
+            current_branch=current_branch,
+            pull_requests=[],
+            working_dir="/tmp/repo",
+        )
+        command_runner = TrackingCommandRunner()
+        client = _make_client(
+            repos=[repo], command_runner=command_runner
+        )
+        worktree_path = str(tmp_path / "new-worktree")
+
+        client.above(
+            repo=repo,
+            new_branch_name="feature-a",
+            pr_title="Feature A",
+            worktree_path=worktree_path,
+        )
+
+        assert len(repo.created_prs) == 1
+        src, dest, title, _ = repo.created_prs[0]
+        assert src.name == "feature-a"
+        assert dest.name == "main"
+        assert title == "Feature A"
+
+    def test_above_on_default_branch_current_pr_is_none(
+        self, tmp_path
+    ) -> None:
+        """above() on default branch returns None for current_pr."""
+        current_branch = MockBranch(name="main")
+        repo = _make_repo(
+            current_branch=current_branch,
+            pull_requests=[],
+            working_dir="/tmp/repo",
+        )
+        command_runner = TrackingCommandRunner()
+        client = _make_client(
+            repos=[repo], command_runner=command_runner
+        )
+        worktree_path = str(tmp_path / "new-worktree")
+
+        result = client.above(
+            repo=repo,
+            new_branch_name="feature-a",
+            pr_title="Feature A",
+            worktree_path=worktree_path,
+        )
+
+        assert isinstance(result, AboveResult)
+        assert result.current_pr is None
+
+    def test_above_on_default_branch_with_create_pr_flag(
+        self, tmp_path
+    ) -> None:
+        """--create-pr is silently accepted on default branch."""
+        current_branch = MockBranch(name="main")
+        repo = _make_repo(
+            current_branch=current_branch,
+            pull_requests=[],
+            working_dir="/tmp/repo",
+        )
+        command_runner = TrackingCommandRunner()
+        client = _make_client(
+            repos=[repo], command_runner=command_runner
+        )
+        worktree_path = str(tmp_path / "new-worktree")
+
+        result = client.above(
+            repo=repo,
+            new_branch_name="feature-a",
+            pr_title="Feature A",
+            worktree_path=worktree_path,
+            create_pr=True,
+        )
+
+        assert isinstance(result, AboveResult)
+        # Still only one PR created (no initial PR)
+        assert len(repo.created_prs) == 1
+
+    def test_above_on_default_branch_does_not_push_default_branch(
+        self, tmp_path
+    ) -> None:
+        """above() on default branch does not push the default branch itself."""
+        current_branch = MockBranch(name="main")
+        repo = _make_repo(
+            current_branch=current_branch,
+            pull_requests=[],
+            working_dir="/tmp/repo",
+        )
+        command_runner = TrackingCommandRunner()
+        client = _make_client(
+            repos=[repo], command_runner=command_runner
+        )
+        worktree_path = str(tmp_path / "new-worktree")
+
+        client.above(
+            repo=repo,
+            new_branch_name="feature-a",
+            pr_title="Feature A",
+            worktree_path=worktree_path,
+        )
+
+        # Only push should be for the new branch
+        push_cmds = [
+            cmd
+            for cmd, _ in command_runner.commands
+            if "push" in cmd
+        ]
+        assert len(push_cmds) == 1
+        assert "feature-a" in push_cmds[0]
+
+    def test_non_default_branch_no_pr_still_errors(
+        self,
+    ) -> None:
+        """above() on non-default branch with no PR still errors without --create-pr."""
+        current_branch = MockBranch(name="feature-a")
+        repo = _make_repo(
+            current_branch=current_branch,
+            pull_requests=[],
+        )
+        client = _make_client(repos=[repo])
+
+        with pytest.raises(
+            ValueError, match="No open PR found"
+        ):
+            client.above(
+                repo=repo,
+                new_branch_name="feature-b",
+                pr_title="Feature B",
+                worktree_path="/tmp/project-feature-b",
+            )
+
+    def test_above_on_default_branch_creates_branch_from_default(
+        self, tmp_path
+    ) -> None:
+        """above() on default branch creates new branch from the default branch."""
+        current_branch = MockBranch(name="main")
+        repo = _make_repo(
+            current_branch=current_branch,
+            pull_requests=[],
+            working_dir="/tmp/repo",
+        )
+        command_runner = TrackingCommandRunner()
+        client = _make_client(
+            repos=[repo], command_runner=command_runner
+        )
+        worktree_path = str(tmp_path / "new-worktree")
+
+        client.above(
+            repo=repo,
+            new_branch_name="feature-a",
+            pr_title="Feature A",
+            worktree_path=worktree_path,
+        )
+
+        assert len(repo.created_branches) == 1
+        branch_name, from_branch = repo.created_branches[0]
+        assert branch_name == "feature-a"
+        assert from_branch.name == "main"
+
+    def test_above_on_custom_default_branch(
+        self, tmp_path
+    ) -> None:
+        """above() works when default branch is not 'main' (e.g. 'develop')."""
+        current_branch = MockBranch(name="develop")
+        repo = _make_repo(
+            current_branch=current_branch,
+            pull_requests=[],
+            working_dir="/tmp/repo",
+        )
+        repo._default_branch = "develop"
+        command_runner = TrackingCommandRunner()
+        client = _make_client(
+            repos=[repo], command_runner=command_runner
+        )
+        worktree_path = str(tmp_path / "new-worktree")
+
+        result = client.above(
+            repo=repo,
+            new_branch_name="feature-a",
+            pr_title="Feature A",
+            worktree_path=worktree_path,
+        )
+
+        assert isinstance(result, AboveResult)
+        assert len(repo.created_prs) == 1
+        src, dest, _, _ = repo.created_prs[0]
+        assert dest.name == "develop"
 
 
 class TestAbovePushFailure:

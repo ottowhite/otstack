@@ -766,11 +766,15 @@ class OtStackClient:
         ]
 
         create_initial = False
+        on_default_branch = False
         initial_title: str | None = None
         initial_dest: str | None = None
 
         if not current_pr_list:
-            if not create_pr:
+            default_branch = repo.get_default_branch()
+            if current_branch.name == default_branch:
+                on_default_branch = True
+            elif not create_pr:
                 raise ValueError(
                     "No open PR found for branch"
                     f" '{current_branch.name}'."
@@ -778,11 +782,12 @@ class OtStackClient:
                     " automatically, or create"
                     " a PR manually first."
                 )
-            create_initial = True
-            initial_dest = repo.get_default_branch()
-            initial_title = self._humanize_branch_name(
-                current_branch.name
-            )
+            else:
+                create_initial = True
+                initial_dest = default_branch
+                initial_title = self._humanize_branch_name(
+                    current_branch.name
+                )
         elif len(current_pr_list) > 1:
             raise ValueError(
                 "Multiple open PRs found for branch"
@@ -814,6 +819,17 @@ class OtStackClient:
             )
 
         if dry_run:
+            if on_default_branch:
+                return AboveDryRunResult(
+                    current_branch_name=current_branch.name,
+                    current_pr=None,
+                    new_branch_name=new_branch_name,
+                    pr_title=pr_title,
+                    worktree_path=worktree_path,
+                    copy_files=copy_files,
+                    run_direnv=run_direnv,
+                    draft=draft,
+                )
             if create_initial:
                 assert initial_dest is not None
                 assert initial_title is not None
@@ -843,8 +859,11 @@ class OtStackClient:
             )
 
         completed_steps: list[tuple[str, str]] = []
+        current_pr: PullRequest | None = None
         try:
-            if create_initial:
+            if on_default_branch:
+                pass  # No initial PR needed
+            elif create_initial:
                 assert initial_dest is not None
                 assert initial_title is not None
                 # Push current branch and create initial PR

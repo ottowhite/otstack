@@ -349,10 +349,11 @@ def _handle_below_above(
                 " above your current PR!"
             )
             print(f"\nNew PR: {result.new_pr.url}")
-            print(
-                "Current PR:"
-                f" {result.current_pr.url}"
-            )
+            if result.current_pr is not None:
+                print(
+                    "Current PR:"
+                    f" {result.current_pr.url}"
+                )
             print(f"Worktree: {result.worktree_path}")
 
 
