@@ -194,3 +194,16 @@
   - Git config (user.name, user.email) must be set on the test repo for `git commit` to work.
   - Mid-stack test verifies branch content (a.txt exists, b.txt doesn't) to confirm the new branch was created from the correct base (origin/feature-a, not origin/main).
 ---
+
+## 2026-03-07 - US-013
+- What was implemented: Integration tests for `above` command and chained below+above operations. Three journey test classes verify above on simple stack, above on 3-deep stack, and below-then-above chaining.
+- Files changed:
+  - `test/otstack/test_integration_above.py` - New test file with 15 tests across 3 journey classes:
+    - `TestAboveSimpleStack` (7 tests): feature -> main, insert above. Verifies: new branch exists, created from current (has feature.txt), worktree exists, worktree on correct branch, PR targets current branch, new branch pushed to remote, returns AboveResult.
+    - `TestAboveThreeDeepStack` (3 tests): 3-deep stack (a <- b <- c), insert above c. Verifies: PR targets feature-c, new branch has all stack files (a.txt, b.txt, c.txt), worktree on correct branch.
+    - `TestBelowThenAbove` (5 tests): below then above on same branch. Verifies: both succeed, both branches exist, both worktrees exist, PRs created correctly (below: prep-work -> main, above: follow-up -> feature), original PR retargeted by below.
+- **Learnings for future iterations:**
+  - `above()` creates branch from current branch (unlike `below()` which creates from destination), so the worktree has all files from the current branch
+  - Chaining below+above works because `_pull_requests` list still contains the original PR (with modified destination from below), and `above()` filters by `source_branch.name` to find the current branch's PR
+  - 3-deep stack tests can include all PRs in `_pull_requests` - `above()` correctly filters to find only the current branch's PR
+---
