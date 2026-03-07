@@ -55,6 +55,7 @@ class TestAboveDryRunResult:
         )
 
         assert result.current_branch_name == "feature-a"
+        assert result.current_pr is not None
         assert result.current_pr.title == "Feature A"
         assert result.new_branch_name == "feature-b"
         assert result.pr_title == "Feature B"
@@ -612,6 +613,196 @@ class TestAbove:
                 worktree_path=str(new_worktree),
                 copy_files=[".env"],
             )
+
+
+class TestAboveCreatePr:
+    def test_no_pr_without_create_pr_mentions_flag(
+        self,
+    ) -> None:
+        """Error message mentions --create-pr flag."""
+        current_branch = MockBranch(name="feature-a")
+        repo = _make_repo(current_branch=current_branch)
+        client = _make_client(repos=[repo])
+
+        with pytest.raises(
+            ValueError, match="--create-pr"
+        ):
+            client.above(
+                repo=repo,
+                new_branch_name="feature-b",
+                pr_title="Feature B",
+                worktree_path="/tmp/project-feature-b",
+            )
+
+    def test_create_pr_pushes_current_branch(
+        self, tmp_path
+    ) -> None:
+        """create_pr=True pushes current branch first."""
+        current_branch = MockBranch(name="feature-a")
+        repo = _make_repo(
+            current_branch=current_branch,
+            working_dir="/tmp/repo",
+        )
+        command_runner = TrackingCommandRunner()
+        client = _make_client(
+            repos=[repo], command_runner=command_runner
+        )
+        worktree_path = str(tmp_path / "new-worktree")
+
+        client.above(
+            repo=repo,
+            new_branch_name="feature-b",
+            pr_title="Feature B",
+            worktree_path=worktree_path,
+            create_pr=True,
+        )
+
+        push_cmds = [
+            cmd
+            for cmd, _ in command_runner.commands
+            if "push" in cmd and "feature-a" in cmd
+        ]
+        assert len(push_cmds) == 1
+
+    def test_create_pr_creates_pr_for_current_branch(
+        self, tmp_path
+    ) -> None:
+        """create_pr=True creates PR for current branch."""
+        current_branch = MockBranch(name="feature-a")
+        repo = _make_repo(
+            current_branch=current_branch,
+            working_dir="/tmp/repo",
+        )
+        command_runner = TrackingCommandRunner()
+        client = _make_client(
+            repos=[repo], command_runner=command_runner
+        )
+        worktree_path = str(tmp_path / "new-worktree")
+
+        client.above(
+            repo=repo,
+            new_branch_name="feature-b",
+            pr_title="Feature B",
+            worktree_path=worktree_path,
+            create_pr=True,
+        )
+
+        # First PR is the initial one, second is above
+        assert len(repo.created_prs) == 2
+        src, dest, title, _ = repo.created_prs[0]
+        assert src.name == "feature-a"
+        assert dest.name == "main"
+        assert title == "Feature A"
+
+    def test_create_pr_uses_default_branch(
+        self, tmp_path
+    ) -> None:
+        """create_pr targets repo's default branch."""
+        current_branch = MockBranch(name="feature-a")
+        repo = _make_repo(
+            current_branch=current_branch,
+            working_dir="/tmp/repo",
+        )
+        repo._default_branch = "develop"
+        command_runner = TrackingCommandRunner()
+        client = _make_client(
+            repos=[repo], command_runner=command_runner
+        )
+        worktree_path = str(tmp_path / "new-worktree")
+
+        client.above(
+            repo=repo,
+            new_branch_name="feature-b",
+            pr_title="Feature B",
+            worktree_path=worktree_path,
+            create_pr=True,
+        )
+
+        _, dest, _, _ = repo.created_prs[0]
+        assert dest.name == "develop"
+
+    def test_create_pr_proceeds_with_above(
+        self, tmp_path
+    ) -> None:
+        """After initial PR creation, above proceeds."""
+        current_branch = MockBranch(name="feature-a")
+        repo = _make_repo(
+            current_branch=current_branch,
+            working_dir="/tmp/repo",
+        )
+        command_runner = TrackingCommandRunner()
+        client = _make_client(
+            repos=[repo], command_runner=command_runner
+        )
+        worktree_path = str(tmp_path / "new-worktree")
+
+        result = client.above(
+            repo=repo,
+            new_branch_name="feature-b",
+            pr_title="Feature B",
+            worktree_path=worktree_path,
+            create_pr=True,
+        )
+
+        assert isinstance(result, AboveResult)
+        assert result.new_branch.name == "feature-b"
+        assert result.worktree_path == worktree_path
+
+    def test_create_pr_dry_run_shows_initial_steps(
+        self, tmp_path
+    ) -> None:
+        """Dry run with create_pr shows initial steps."""
+        current_branch = MockBranch(name="feature-a")
+        repo = _make_repo(
+            current_branch=current_branch,
+        )
+        client = _make_client(repos=[repo])
+        worktree_path = str(tmp_path / "new-worktree")
+
+        result = client.above(
+            repo=repo,
+            new_branch_name="feature-b",
+            pr_title="Feature B",
+            worktree_path=worktree_path,
+            dry_run=True,
+            create_pr=True,
+        )
+
+        assert isinstance(result, AboveDryRunResult)
+        assert result.create_initial_pr is True
+        output = result.format_output()
+        assert "Push 'feature-a' to origin" in output
+        assert "Feature A" in output
+        assert "PR: (none)" in output
+
+    def test_create_pr_outputs_creation_message(
+        self, tmp_path
+    ) -> None:
+        """create_pr=True outputs PR creation message."""
+        current_branch = MockBranch(name="feature-a")
+        repo = _make_repo(
+            current_branch=current_branch,
+            working_dir="/tmp/repo",
+        )
+        command_runner = TrackingCommandRunner()
+        output = io.StringIO()
+        client = _make_client(
+            repos=[repo],
+            command_runner=command_runner,
+            output=output,
+        )
+        worktree_path = str(tmp_path / "new-worktree")
+
+        client.above(
+            repo=repo,
+            new_branch_name="feature-b",
+            pr_title="Feature B",
+            worktree_path=worktree_path,
+            create_pr=True,
+        )
+
+        printed = output.getvalue()
+        assert "Created PR for 'feature-a'" in printed
 
 
 class TestAbovePushFailure:
@@ -1221,6 +1412,7 @@ class TestAboveDryRun:
 
         assert isinstance(result, AboveDryRunResult)
         assert result.current_branch_name == "feature-a"
+        assert result.current_pr is not None
         assert result.current_pr.title == "Feature A"
         assert result.new_branch_name == "feature-b"
         assert result.pr_title == "Feature B"

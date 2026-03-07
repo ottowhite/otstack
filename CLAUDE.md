@@ -71,9 +71,13 @@ Insert a new PR "below" the current PR in a stack. Creates a new branch and PR t
 - `--path, -p` - Path to local git repository (defaults to `.`)
 - `--draft, -d` - Create the new PR as a draft
 - `--no-verify` - Skip pre-commit hooks on the initialization commit
+- `--create-pr` - Create a PR for the current branch if one doesn't exist (uses branch name as title, targets default branch)
 - `--direnv` - Run `direnv allow` in new worktree after creation
 - `--copy, -c` - Copy file from current worktree to new (repeatable)
 - `--dry-run, -n` - Show what would happen without making any changes
+
+**No PR behavior:**
+When the current branch has no open PR, below/above will error with a message suggesting `--create-pr`. In interactive mode, the user is prompted to create one. With `--create-pr`, a PR is automatically created using the humanized branch name as title and the repo's default branch as destination.
 
 **Dry run behavior:**
 When `--dry-run` is passed, the command performs all validation checks (which are read-only and safe) and then prints what would happen instead of executing. The output includes:
@@ -97,6 +101,7 @@ Insert a new PR "above" the current PR in a stack. Creates a new branch from the
 - `--path, -p` - Path to local git repository (defaults to `.`)
 - `--draft, -d` - Create the new PR as a draft
 - `--no-verify` - Skip pre-commit hooks on the initialization commit
+- `--create-pr` - Create a PR for the current branch if one doesn't exist (uses branch name as title, targets default branch)
 - `--direnv` - Run `direnv allow` in new worktree after creation
 - `--copy, -c` - Copy file from current worktree to new (repeatable)
 - `--dry-run, -n` - Show what would happen without making any changes

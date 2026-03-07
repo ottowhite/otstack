@@ -12,6 +12,11 @@
 - `SimpleBranch` can represent remote refs like `origin/main` for `create_branch`
 - `questionary.text()` accepts a `default` parameter to pre-fill the input; user can accept with Enter or type to override
 - Auto-default worktree: in main.py, compute `Path(local_path).resolve().parent / branch` before the interactive check so branch+title skips interactive mode
+- Repository protocol has `get_default_branch() -> str` for determining the repo's default branch
+- MockRepository has `_default_branch: str = "main"` field for testing
+- `BelowDryRunResult.current_pr` and `AboveDryRunResult.current_pr` are `PullRequest | None` - use `assert result.current_pr is not None` before accessing `.title` in tests
+- `OtStackClient._humanize_branch_name()` converts "feature-branch" → "Feature Branch" for auto-generated PR titles
+- When adding `str | None` fields to OtStackClient that are guaranteed non-None in specific branches, use `assert` to narrow for the type checker
 
 ## 2026-03-07 - US-001
 - What was implemented: Fixed `get_branches()` in `PyGitHubRepository` to use `self._git_repo.heads` instead of `self._git_repo.references`, so tags, stash refs, and other non-branch refs are excluded
@@ -151,4 +156,66 @@
   - Wrapping the entire mutation phase in try/except catches both specific re-raised ValueErrors (commit/push) and unexpected exceptions (PR creation, retarget)
   - `MockRepository._raise_on_create_pr` flag causes `create_pr()` to raise `RuntimeError` for testing PR creation failure recovery
   - Recovery message is printed to `self._output`, not included in the exception message - test with `io.StringIO()` passed to `_make_client(output=...)`
+---
+
+## 2026-03-07 - US-011
+- What was implemented: Support below/above when no PR exists for the current branch. Added `--create-pr` flag and interactive prompting. When no PR found: non-interactive mode without flag errors with `--create-pr` hint; non-interactive with `--create-pr` auto-creates PR (pushes branch, creates PR with humanized branch name as title targeting repo default branch); interactive mode prompts user. Dry-run shows initial PR creation as numbered steps before the rest.
+- Files changed:
+  - `src/otstack/Repository.py` - Added `get_default_branch() -> str` to protocol
+  - `src/otstack/PyGitHubRepository.py` - Implemented `get_default_branch()` using `self._gh_repo.default_branch`
+  - `src/otstack/OtStackClient.py` - Added `create_pr: bool = False` to `below()` and `above()`, added `_humanize_branch_name()` static method, handle no-PR case with auto-creation or error
+  - `src/otstack/BelowDryRunResult.py` - Changed `current_pr` to `PullRequest | None`, added `create_initial_pr`, `initial_pr_title`, `initial_pr_destination` fields, updated `format_output()` with dynamic step numbering
+  - `src/otstack/AboveDryRunResult.py` - Same changes as BelowDryRunResult
+  - `src/otstack/main.py` - Added `--create-pr` flag, extracted `_add_below_above_args()` and `_handle_below_above()` helpers, interactive mode checks for PR and prompts via questionary
+  - `test/otstack/helpers/MockRepository.py` - Added `_default_branch: str = "main"` field and `get_default_branch()` method
+  - `test/otstack/test_below.py` - Added `TestBelowCreatePr` class with 8 tests, added `assert current_pr is not None` guards
+  - `test/otstack/test_above.py` - Added `TestAboveCreatePr` class with 8 tests, added `assert current_pr is not None` guards
+  - `test/otstack/test_main.py` - Added `TestBelowCreatePrCommand` class with 2 tests, added `_make_repo_without_pr()` helper, added `import pytest`
+  - `CLAUDE.md` - Added `--create-pr` flag docs and "No PR behavior" section
+- **Learnings for future iterations:**
+  - `PyGithub`'s `Repository.default_branch` gives the repo default branch natively
+  - When making a protocol field optional (`PullRequest | None`), add `assert is not None` in tests that access it, and `assert` in implementation code to narrow the type for the checker
+  - main.py was refactored to extract `_add_below_above_args()` for shared CLI args and `_handle_below_above()` for the command logic - keeps main() focused
+  - Interactive mode PR creation check happens after repo is obtained (inside the `try` block) since it needs access to the repo object
+  - `questionary.confirm()` can be used directly in main.py (not just InteractivePrompter) for one-off prompts
+---
+
+## 2026-03-07 - US-012
+- What was implemented: Integration tests for `below` using real local git repos. Created `IntegrationTestRepository` helper that uses real GitPython `Repo` for all git operations (branch, worktree, commit) but mocks GitHub PR operations (create_pr, get_open_pull_requests). Two journey test classes cover simple stack and mid-stack scenarios.
+- Files changed:
+  - `test/otstack/helpers/IntegrationTestRepository.py` - New helper: hybrid Repository using real git + mock PRs. Delegates create_branch, create_worktree, get_current_branch, has_uncommitted_changes, get_branches, get_remote_branches, get_working_dir to real `git.Repo`. Mocks create_pr and get_open_pull_requests with configurable data.
+  - `test/otstack/test_integration_below.py` - New test file with 12 tests across 2 journey classes:
+    - `TestBelowSimpleStack` (7 tests): feature -> main, insert below. Verifies: new branch exists, worktree exists, worktree on correct branch, PR created with correct src/dest, original PR retargeted, new branch pushed to remote, returns BelowResult.
+    - `TestBelowMidStack` (5 tests): feature-b -> feature-a, insert below. Verifies: new branch created from destination (has a.txt, not b.txt), PR targets feature-a, original PR retargeted, new branch exists, worktree on correct branch.
+- **Learnings for future iterations:**
+  - Integration tests use `_init_repo_with_remote()` to create a bare repo + clone with main branch and origin remote. This makes `git fetch`, `git push`, and `origin/*` refs all work.
+  - `SubprocessCommandRunner` is used (not TrackingCommandRunner) since we want real git commands to execute against the bare remote.
+  - `IntegrationTestRepository` is similar to `PyGitHubRepository` but replaces GitHub API calls with mock data. The `created_prs` list tracks PR creation calls.
+  - Git config (user.name, user.email) must be set on the test repo for `git commit` to work.
+  - Mid-stack test verifies branch content (a.txt exists, b.txt doesn't) to confirm the new branch was created from the correct base (origin/feature-a, not origin/main).
+---
+
+## 2026-03-07 - US-013
+- What was implemented: Integration tests for `above` command and chained below+above operations. Three journey test classes verify above on simple stack, above on 3-deep stack, and below-then-above chaining.
+- Files changed:
+  - `test/otstack/test_integration_above.py` - New test file with 15 tests across 3 journey classes:
+    - `TestAboveSimpleStack` (7 tests): feature -> main, insert above. Verifies: new branch exists, created from current (has feature.txt), worktree exists, worktree on correct branch, PR targets current branch, new branch pushed to remote, returns AboveResult.
+    - `TestAboveThreeDeepStack` (3 tests): 3-deep stack (a <- b <- c), insert above c. Verifies: PR targets feature-c, new branch has all stack files (a.txt, b.txt, c.txt), worktree on correct branch.
+    - `TestBelowThenAbove` (5 tests): below then above on same branch. Verifies: both succeed, both branches exist, both worktrees exist, PRs created correctly (below: prep-work -> main, above: follow-up -> feature), original PR retargeted by below.
+- **Learnings for future iterations:**
+  - `above()` creates branch from current branch (unlike `below()` which creates from destination), so the worktree has all files from the current branch
+  - Chaining below+above works because `_pull_requests` list still contains the original PR (with modified destination from below), and `above()` filters by `source_branch.name` to find the current branch's PR
+  - 3-deep stack tests can include all PRs in `_pull_requests` - `above()` correctly filters to find only the current branch's PR
+---
+
+## 2026-03-07 - US-014
+- What was implemented: Integration tests for running below from inside a worktree, and for file copying with the `copy_files` parameter.
+- Files changed:
+  - `test/otstack/test_integration_worktree.py` - New test file with 11 tests across 2 journey classes:
+    - `TestBelowFromWorktree` (6 tests): Creates a worktree for `feature`, opens `Repo(worktree_path)` as the repo context, runs `below()`. Verifies: correct branch detected, below succeeds, new branch exists, new worktree exists, PR created, original PR retargeted.
+    - `TestBelowWithFileCopy` (5 tests): Creates files (`.envrc`, `config/local.yaml`) in source repo, runs `below()` with `copy_files`. Verifies: copied file exists, content matches, nested directory copied, multiple files copied, below returns BelowResult.
+- **Learnings for future iterations:**
+  - Can't create a worktree for a branch that's already checked out - must `git checkout main` first in the main repo before `git worktree add wt-path feature`
+  - `Repo(worktree_path)` correctly detects worktree context - `active_branch`, `working_dir`, and git commands all work correctly
+  - Untracked files (not added to git index) are still present in `working_dir` and can be copied via `copy_files` - the copy uses `Path(working_dir) / file_path` which sees all files, not just tracked ones
 ---

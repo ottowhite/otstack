@@ -2,6 +2,8 @@ import sys
 from io import StringIO
 from unittest.mock import patch
 
+import pytest
+
 from otstack.main import main
 
 from .helpers.MockBranch import MockBranch
@@ -50,6 +52,89 @@ class TestSyncCommand:
             main()
             output = mock_stdout.getvalue()
             assert "All PRs synced successfully!" in output
+
+
+class TestBelowCreatePrCommand:
+    def test_create_pr_flag_passes_through(
+        self, tmp_path
+    ) -> None:
+        """--create-pr flag creates PR and proceeds."""
+        repo = _make_repo_without_pr()
+        mock_client = MockGitHubClient(repos=[repo])
+        mock_detector = MockGitRepoDetector(
+            repo_name=None
+        )
+        worktree_path = str(tmp_path / "new-worktree")
+
+        with (
+            patch.object(
+                sys,
+                "argv",
+                [
+                    "otstack",
+                    "below",
+                    "-b",
+                    "prep-work",
+                    "-t",
+                    "Preparatory refactor",
+                    "-w",
+                    worktree_path,
+                    "--repo",
+                    "test-user/test-repo",
+                    "--create-pr",
+                ],
+            ),
+            patch(
+                "otstack.main.OtStackClient",
+                return_value=_make_mock_client_context(
+                    mock_client, mock_detector
+                ),
+            ),
+            patch.object(
+                sys, "stdout", new_callable=StringIO
+            ) as mock_stdout,
+        ):
+            main()
+            output = mock_stdout.getvalue()
+            assert "prep-work" in output
+
+    def test_no_create_pr_flag_errors(self) -> None:
+        """Without --create-pr, errors with hint."""
+        repo = _make_repo_without_pr()
+        mock_client = MockGitHubClient(repos=[repo])
+        mock_detector = MockGitRepoDetector(
+            repo_name=None
+        )
+
+        with (
+            patch.object(
+                sys,
+                "argv",
+                [
+                    "otstack",
+                    "below",
+                    "-b",
+                    "prep-work",
+                    "-t",
+                    "Preparatory refactor",
+                    "-w",
+                    "/tmp/wt",
+                    "--repo",
+                    "test-user/test-repo",
+                ],
+            ),
+            patch(
+                "otstack.main.OtStackClient",
+                return_value=_make_mock_client_context(
+                    mock_client, mock_detector
+                ),
+            ),
+            patch.object(
+                sys, "stdout", new_callable=StringIO
+            ),
+            pytest.raises(SystemExit),
+        ):
+            main()
 
 
 class TestBelowCommand:
@@ -185,6 +270,20 @@ def _make_repo_with_local_pr() -> MockRepository:
         private=False,
         url="https://github.com/test-user/test-repo",
         _pull_requests=[pr],
+    )
+
+
+def _make_repo_without_pr() -> MockRepository:
+    """Create a repo with no PRs (current branch has no PR)."""
+    return MockRepository(
+        name="test-repo",
+        full_name="test-user/test-repo",
+        description="Test repository",
+        private=False,
+        url="https://github.com/test-user/test-repo",
+        _pull_requests=[],
+        _current_branch=MockBranch(name="feature"),
+        _working_dir="/tmp/repo",
     )
 
 

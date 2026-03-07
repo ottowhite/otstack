@@ -417,6 +417,15 @@ class OtStackClient:
         self._output.write("  Merged and pushed.\n")
         return True
 
+    @staticmethod
+    def _humanize_branch_name(name: str) -> str:
+        """Convert a branch name to a human-readable title."""
+        return (
+            name.replace("-", " ")
+            .replace("_", " ")
+            .title()
+        )
+
     def below(
         self,
         repo: Repository,
@@ -428,6 +437,7 @@ class OtStackClient:
         dry_run: bool = False,
         draft: bool = False,
         no_verify: bool = False,
+        create_pr: bool = False,
     ) -> BelowResult | BelowDryRunResult:
         """
         Insert a new PR below the current PR in the stack.
@@ -437,40 +447,63 @@ class OtStackClient:
         current_branch = repo.get_current_branch()
         if current_branch is None:
             raise ValueError(
-                "You are in detached HEAD state. Checkout a branch first."
+                "You are in detached HEAD state."
+                " Checkout a branch first."
             )
 
         if repo.has_uncommitted_changes():
             raise ValueError(
-                "You have uncommitted changes. Commit or stash them first."
+                "You have uncommitted changes."
+                " Commit or stash them first."
             )
 
         # Find PR for current branch
         prs = repo.get_open_pull_requests()
         current_pr_list = [
-            pr for pr in prs if pr.source_branch.name == current_branch.name
+            pr
+            for pr in prs
+            if pr.source_branch.name == current_branch.name
         ]
 
-        if not current_pr_list:
-            raise ValueError(
-                f"No open PR found for branch '{current_branch.name}'. "
-                "Create a PR first."
-            )
+        create_initial = False
+        initial_title: str | None = None
+        initial_dest: str | None = None
 
-        if len(current_pr_list) > 1:
+        if not current_pr_list:
+            if not create_pr:
+                raise ValueError(
+                    "No open PR found for branch"
+                    f" '{current_branch.name}'."
+                    " Use --create-pr to create one"
+                    " automatically, or create"
+                    " a PR manually first."
+                )
+            create_initial = True
+            initial_dest = repo.get_default_branch()
+            initial_title = self._humanize_branch_name(
+                current_branch.name
+            )
+        elif len(current_pr_list) > 1:
             raise ValueError(
-                f"Multiple open PRs found for branch '{current_branch.name}'. "
-                "This is ambiguous."
+                "Multiple open PRs found for branch"
+                f" '{current_branch.name}'."
+                " This is ambiguous."
             )
 
         # Check if new branch already exists (local or remote)
         existing_branches = repo.get_branches()
-        if any(b.name == new_branch_name for b in existing_branches):
-            raise ValueError(f"Branch '{new_branch_name}' already exists.")
+        if any(
+            b.name == new_branch_name
+            for b in existing_branches
+        ):
+            raise ValueError(
+                f"Branch '{new_branch_name}' already exists."
+            )
         remote_branches = repo.get_remote_branches()
         if new_branch_name in remote_branches:
             raise ValueError(
-                f"Branch '{new_branch_name}' already exists on remote."
+                f"Branch '{new_branch_name}'"
+                " already exists on remote."
             )
 
         # Check if worktree path already exists
@@ -480,18 +513,34 @@ class OtStackClient:
                 "Choose a different worktree path."
             )
 
-        # Get the current PR (we already validated there's exactly one)
-        current_pr = current_pr_list[0]
-        original_destination = current_pr.destination_branch
-
         if dry_run:
+            if create_initial:
+                assert initial_dest is not None
+                assert initial_title is not None
+                return BelowDryRunResult(
+                    current_branch_name=current_branch.name,
+                    current_pr=None,
+                    new_branch_name=new_branch_name,
+                    pr_title=pr_title,
+                    worktree_path=worktree_path,
+                    original_destination_name=initial_dest,
+                    copy_files=copy_files,
+                    run_direnv=run_direnv,
+                    draft=draft,
+                    create_initial_pr=True,
+                    initial_pr_title=initial_title,
+                    initial_pr_destination=initial_dest,
+                )
+            current_pr = current_pr_list[0]
             return BelowDryRunResult(
                 current_branch_name=current_branch.name,
                 current_pr=current_pr,
                 new_branch_name=new_branch_name,
                 pr_title=pr_title,
                 worktree_path=worktree_path,
-                original_destination_name=original_destination.name,
+                original_destination_name=(
+                    current_pr.destination_branch.name
+                ),
                 copy_files=copy_files,
                 run_direnv=run_direnv,
                 draft=draft,
@@ -499,10 +548,57 @@ class OtStackClient:
 
         completed_steps: list[tuple[str, str]] = []
         try:
-            # Fetch latest remote state for the destination branch
             working_dir = repo.get_working_dir()
+
+            if create_initial:
+                assert initial_dest is not None
+                assert initial_title is not None
+                # Push current branch and create initial PR
+                try:
+                    self._command_runner.run(
+                        [
+                            "git",
+                            "push",
+                            "-u",
+                            "origin",
+                            current_branch.name,
+                        ],
+                        cwd=working_dir,
+                    )
+                except subprocess.CalledProcessError:
+                    raise ValueError(
+                        "Failed to push branch"
+                        f" '{current_branch.name}'. "
+                        "Check your network connectivity"
+                        " and authentication."
+                    )
+                current_pr = repo.create_pr(
+                    current_branch,
+                    SimpleBranch(name=initial_dest),
+                    initial_title,
+                )
+                original_destination = SimpleBranch(
+                    name=initial_dest
+                )
+                self._output.write(
+                    f"Created PR for"
+                    f" '{current_branch.name}'"
+                    f" -> '{initial_dest}'\n"
+                )
+            else:
+                current_pr = current_pr_list[0]
+                original_destination = (
+                    current_pr.destination_branch
+                )
+
+            # Fetch latest remote state
             self._command_runner.run(
-                ["git", "fetch", "origin", original_destination.name],
+                [
+                    "git",
+                    "fetch",
+                    "origin",
+                    original_destination.name,
+                ],
                 cwd=working_dir,
             )
 
@@ -525,11 +621,10 @@ class OtStackClient:
                 f"git worktree remove {worktree_path}",
             ))
 
-            # Copy files first (before direnv, which may need them)
+            # Copy files first (before direnv)
             if copy_files:
-                current_working_dir = repo.get_working_dir()
                 for file_path in copy_files:
-                    src = Path(current_working_dir) / file_path
+                    src = Path(working_dir) / file_path
                     dst = Path(worktree_path) / file_path
                     if src.exists():
                         dst.parent.mkdir(
@@ -546,11 +641,13 @@ class OtStackClient:
             if run_direnv:
                 try:
                     self._command_runner.run(
-                        ["direnv", "allow"], cwd=worktree_path
+                        ["direnv", "allow"],
+                        cwd=worktree_path,
                     )
                 except FileNotFoundError:
                     self._output.write(
-                        "Warning: 'direnv' command not found."
+                        "Warning: 'direnv' command"
+                        " not found."
                         " Skipping direnv allow.\n"
                     )
 
@@ -600,10 +697,11 @@ class OtStackClient:
                 )
             completed_steps.append((
                 f"Pushed '{new_branch_name}' to origin",
-                f"git push origin --delete {new_branch_name}",
+                f"git push origin --delete"
+                f" {new_branch_name}",
             ))
 
-            # Create PR from new branch to original destination
+            # Create PR from new branch to original dest
             new_pr = repo.create_pr(
                 new_branch,
                 original_destination,
@@ -622,7 +720,9 @@ class OtStackClient:
             )
         except Exception:
             if completed_steps:
-                self._print_recovery_message(completed_steps)
+                self._print_recovery_message(
+                    completed_steps
+                )
             raise
 
     def above(
@@ -636,49 +736,74 @@ class OtStackClient:
         dry_run: bool = False,
         draft: bool = False,
         no_verify: bool = False,
+        create_pr: bool = False,
     ) -> AboveResult | AboveDryRunResult:
         """
         Insert a new PR above the current PR in the stack.
 
-        Creates a new branch from the current branch and a PR targeting current branch.
+        Creates a new branch from the current branch
+        and a PR targeting current branch.
         """
         current_branch = repo.get_current_branch()
         if current_branch is None:
             raise ValueError(
-                "You are in detached HEAD state. Checkout a branch first."
+                "You are in detached HEAD state."
+                " Checkout a branch first."
             )
 
         if repo.has_uncommitted_changes():
             raise ValueError(
-                "You have uncommitted changes. Commit or stash them first."
+                "You have uncommitted changes."
+                " Commit or stash them first."
             )
 
         # Find PR for current branch
         prs = repo.get_open_pull_requests()
         current_pr_list = [
-            pr for pr in prs if pr.source_branch.name == current_branch.name
+            pr
+            for pr in prs
+            if pr.source_branch.name == current_branch.name
         ]
 
-        if not current_pr_list:
-            raise ValueError(
-                f"No open PR found for branch '{current_branch.name}'. "
-                "Create a PR first."
-            )
+        create_initial = False
+        initial_title: str | None = None
+        initial_dest: str | None = None
 
-        if len(current_pr_list) > 1:
+        if not current_pr_list:
+            if not create_pr:
+                raise ValueError(
+                    "No open PR found for branch"
+                    f" '{current_branch.name}'."
+                    " Use --create-pr to create one"
+                    " automatically, or create"
+                    " a PR manually first."
+                )
+            create_initial = True
+            initial_dest = repo.get_default_branch()
+            initial_title = self._humanize_branch_name(
+                current_branch.name
+            )
+        elif len(current_pr_list) > 1:
             raise ValueError(
-                f"Multiple open PRs found for branch '{current_branch.name}'. "
-                "This is ambiguous."
+                "Multiple open PRs found for branch"
+                f" '{current_branch.name}'."
+                " This is ambiguous."
             )
 
         # Check if new branch already exists (local or remote)
         existing_branches = repo.get_branches()
-        if any(b.name == new_branch_name for b in existing_branches):
-            raise ValueError(f"Branch '{new_branch_name}' already exists.")
+        if any(
+            b.name == new_branch_name
+            for b in existing_branches
+        ):
+            raise ValueError(
+                f"Branch '{new_branch_name}' already exists."
+            )
         remote_branches = repo.get_remote_branches()
         if new_branch_name in remote_branches:
             raise ValueError(
-                f"Branch '{new_branch_name}' already exists on remote."
+                f"Branch '{new_branch_name}'"
+                " already exists on remote."
             )
 
         # Check if worktree path already exists
@@ -688,10 +813,24 @@ class OtStackClient:
                 "Choose a different worktree path."
             )
 
-        # Get the current PR
-        current_pr = current_pr_list[0]
-
         if dry_run:
+            if create_initial:
+                assert initial_dest is not None
+                assert initial_title is not None
+                return AboveDryRunResult(
+                    current_branch_name=current_branch.name,
+                    current_pr=None,
+                    new_branch_name=new_branch_name,
+                    pr_title=pr_title,
+                    worktree_path=worktree_path,
+                    copy_files=copy_files,
+                    run_direnv=run_direnv,
+                    draft=draft,
+                    create_initial_pr=True,
+                    initial_pr_title=initial_title,
+                    initial_pr_destination=initial_dest,
+                )
+            current_pr = current_pr_list[0]
             return AboveDryRunResult(
                 current_branch_name=current_branch.name,
                 current_pr=current_pr,
@@ -705,6 +844,42 @@ class OtStackClient:
 
         completed_steps: list[tuple[str, str]] = []
         try:
+            if create_initial:
+                assert initial_dest is not None
+                assert initial_title is not None
+                # Push current branch and create initial PR
+                working_dir = repo.get_working_dir()
+                try:
+                    self._command_runner.run(
+                        [
+                            "git",
+                            "push",
+                            "-u",
+                            "origin",
+                            current_branch.name,
+                        ],
+                        cwd=working_dir,
+                    )
+                except subprocess.CalledProcessError:
+                    raise ValueError(
+                        "Failed to push branch"
+                        f" '{current_branch.name}'. "
+                        "Check your network connectivity"
+                        " and authentication."
+                    )
+                current_pr = repo.create_pr(
+                    current_branch,
+                    SimpleBranch(name=initial_dest),
+                    initial_title,
+                )
+                self._output.write(
+                    f"Created PR for"
+                    f" '{current_branch.name}'"
+                    f" -> '{initial_dest}'\n"
+                )
+            else:
+                current_pr = current_pr_list[0]
+
             # Create new branch from current branch
             new_branch = repo.create_branch(
                 new_branch_name, current_branch
@@ -721,11 +896,13 @@ class OtStackClient:
                 f"git worktree remove {worktree_path}",
             ))
 
-            # Copy files first (before direnv, which may need them)
+            # Copy files first (before direnv)
             if copy_files:
                 current_working_dir = repo.get_working_dir()
                 for file_path in copy_files:
-                    src = Path(current_working_dir) / file_path
+                    src = (
+                        Path(current_working_dir) / file_path
+                    )
                     dst = Path(worktree_path) / file_path
                     if src.exists():
                         dst.parent.mkdir(
@@ -742,11 +919,13 @@ class OtStackClient:
             if run_direnv:
                 try:
                     self._command_runner.run(
-                        ["direnv", "allow"], cwd=worktree_path
+                        ["direnv", "allow"],
+                        cwd=worktree_path,
                     )
                 except FileNotFoundError:
                     self._output.write(
-                        "Warning: 'direnv' command not found."
+                        "Warning: 'direnv' command"
+                        " not found."
                         " Skipping direnv allow.\n"
                     )
 
@@ -796,7 +975,8 @@ class OtStackClient:
                 )
             completed_steps.append((
                 f"Pushed '{new_branch_name}' to origin",
-                f"git push origin --delete {new_branch_name}",
+                f"git push origin --delete"
+                f" {new_branch_name}",
             ))
 
             # Create PR from new branch to current branch
@@ -815,7 +995,9 @@ class OtStackClient:
             )
         except Exception:
             if completed_steps:
-                self._print_recovery_message(completed_steps)
+                self._print_recovery_message(
+                    completed_steps
+                )
             raise
 
     def _print_recovery_message(
