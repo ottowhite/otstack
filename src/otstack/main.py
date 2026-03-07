@@ -117,6 +117,11 @@ def main() -> None:
         help="Create the new PR as a draft",
     )
     below_parser.add_argument(
+        "--no-verify",
+        action="store_true",
+        help="Skip pre-commit hooks on the initialization commit",
+    )
+    below_parser.add_argument(
         "--dry-run",
         "-n",
         action="store_true",
@@ -183,6 +188,11 @@ def main() -> None:
         help="Create the new PR as a draft",
     )
     above_parser.add_argument(
+        "--no-verify",
+        action="store_true",
+        help="Skip pre-commit hooks on the initialization commit",
+    )
+    above_parser.add_argument(
         "--dry-run",
         "-n",
         action="store_true",
@@ -240,6 +250,7 @@ def main() -> None:
                     run_direnv=args.direnv,
                     dry_run=args.dry_run,
                     draft=args.draft,
+                    no_verify=args.no_verify,
                 )
                 if isinstance(result, BelowDryRunResult):
                     print(result.format_output())
@@ -261,6 +272,7 @@ def main() -> None:
                     run_direnv=args.direnv,
                     dry_run=args.dry_run,
                     draft=args.draft,
+                    no_verify=args.no_verify,
                 )
                 if isinstance(result, AboveDryRunResult):
                     print(result.format_output())

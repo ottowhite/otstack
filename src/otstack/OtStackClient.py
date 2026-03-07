@@ -427,6 +427,7 @@ class OtStackClient:
         run_direnv: bool = False,
         dry_run: bool = False,
         draft: bool = False,
+        no_verify: bool = False,
     ) -> BelowResult | BelowDryRunResult:
         """
         Insert a new PR below the current PR in the stack.
@@ -532,16 +533,27 @@ class OtStackClient:
                 )
 
         # Create empty commit in worktree so GitHub allows creating a PR
-        self._command_runner.run(
-            [
-                "git",
-                "commit",
-                "--allow-empty",
-                "-m",
-                f"chore: initialize {new_branch_name}",
-            ],
-            cwd=worktree_path,
-        )
+        commit_cmd = [
+            "git",
+            "commit",
+            "--allow-empty",
+            "-m",
+            f"chore: initialize {new_branch_name}",
+        ]
+        if no_verify:
+            commit_cmd.insert(2, "--no-verify")
+        try:
+            self._command_runner.run(commit_cmd, cwd=worktree_path)
+        except subprocess.CalledProcessError:
+            raise ValueError(
+                "Pre-commit hooks rejected the initialization "
+                f"commit on branch '{new_branch_name}'.\n"
+                "Check the hook output above for details.\n"
+                "You can retry with --no-verify to skip hooks.\n"
+                "The following were already created:\n"
+                f"  - Branch: {new_branch_name}\n"
+                f"  - Worktree: {worktree_path}"
+            )
 
         # Push new branch from worktree
         try:
@@ -584,6 +596,7 @@ class OtStackClient:
         run_direnv: bool = False,
         dry_run: bool = False,
         draft: bool = False,
+        no_verify: bool = False,
     ) -> AboveResult | AboveDryRunResult:
         """
         Insert a new PR above the current PR in the stack.
@@ -681,16 +694,27 @@ class OtStackClient:
                 )
 
         # Create empty commit in worktree so GitHub allows creating a PR
-        self._command_runner.run(
-            [
-                "git",
-                "commit",
-                "--allow-empty",
-                "-m",
-                f"chore: initialize {new_branch_name}",
-            ],
-            cwd=worktree_path,
-        )
+        commit_cmd = [
+            "git",
+            "commit",
+            "--allow-empty",
+            "-m",
+            f"chore: initialize {new_branch_name}",
+        ]
+        if no_verify:
+            commit_cmd.insert(2, "--no-verify")
+        try:
+            self._command_runner.run(commit_cmd, cwd=worktree_path)
+        except subprocess.CalledProcessError:
+            raise ValueError(
+                "Pre-commit hooks rejected the initialization "
+                f"commit on branch '{new_branch_name}'.\n"
+                "Check the hook output above for details.\n"
+                "You can retry with --no-verify to skip hooks.\n"
+                "The following were already created:\n"
+                f"  - Branch: {new_branch_name}\n"
+                f"  - Worktree: {worktree_path}"
+            )
 
         # Push new branch from worktree
         try:

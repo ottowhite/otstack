@@ -736,6 +736,200 @@ class TestAbovePushFailure:
         assert f"Worktree: {worktree_path}" in msg
 
 
+class TestAboveCommitFailure:
+    def test_commit_failure_raises_value_error(
+        self, tmp_path
+    ) -> None:
+        """above() raises ValueError on commit failure."""
+        current_branch = MockBranch(name="feature-a")
+        pr = _make_pr(
+            source_branch="feature-a",
+            destination_branch="main",
+        )
+        repo = _make_repo(
+            current_branch=current_branch,
+            pull_requests=[pr],
+        )
+        command_runner = TrackingCommandRunner(
+            raise_called_process_error_for=["commit"],
+        )
+        client = _make_client(
+            repos=[repo], command_runner=command_runner
+        )
+        worktree_path = str(tmp_path / "new-worktree")
+
+        with pytest.raises(
+            ValueError, match="Pre-commit hooks rejected"
+        ):
+            client.above(
+                repo=repo,
+                new_branch_name="feature-b",
+                pr_title="Feature B",
+                worktree_path=worktree_path,
+            )
+
+    def test_commit_failure_suggests_no_verify(
+        self, tmp_path
+    ) -> None:
+        """Commit failure suggests --no-verify."""
+        current_branch = MockBranch(name="feature-a")
+        pr = _make_pr(
+            source_branch="feature-a",
+            destination_branch="main",
+        )
+        repo = _make_repo(
+            current_branch=current_branch,
+            pull_requests=[pr],
+        )
+        command_runner = TrackingCommandRunner(
+            raise_called_process_error_for=["commit"],
+        )
+        client = _make_client(
+            repos=[repo], command_runner=command_runner
+        )
+        worktree_path = str(tmp_path / "new-worktree")
+
+        with pytest.raises(ValueError, match="--no-verify"):
+            client.above(
+                repo=repo,
+                new_branch_name="feature-b",
+                pr_title="Feature B",
+                worktree_path=worktree_path,
+            )
+
+    def test_commit_failure_includes_branch_name(
+        self, tmp_path
+    ) -> None:
+        """Commit failure includes the branch name."""
+        current_branch = MockBranch(name="feature-a")
+        pr = _make_pr(
+            source_branch="feature-a",
+            destination_branch="main",
+        )
+        repo = _make_repo(
+            current_branch=current_branch,
+            pull_requests=[pr],
+        )
+        command_runner = TrackingCommandRunner(
+            raise_called_process_error_for=["commit"],
+        )
+        client = _make_client(
+            repos=[repo], command_runner=command_runner
+        )
+        worktree_path = str(tmp_path / "new-worktree")
+
+        with pytest.raises(ValueError, match="'feature-b'"):
+            client.above(
+                repo=repo,
+                new_branch_name="feature-b",
+                pr_title="Feature B",
+                worktree_path=worktree_path,
+            )
+
+    def test_commit_failure_lists_created_artifacts(
+        self, tmp_path
+    ) -> None:
+        """Commit failure lists already-created artifacts."""
+        current_branch = MockBranch(name="feature-a")
+        pr = _make_pr(
+            source_branch="feature-a",
+            destination_branch="main",
+        )
+        repo = _make_repo(
+            current_branch=current_branch,
+            pull_requests=[pr],
+        )
+        command_runner = TrackingCommandRunner(
+            raise_called_process_error_for=["commit"],
+        )
+        client = _make_client(
+            repos=[repo], command_runner=command_runner
+        )
+        worktree_path = str(tmp_path / "new-worktree")
+
+        with pytest.raises(ValueError) as exc_info:
+            client.above(
+                repo=repo,
+                new_branch_name="feature-b",
+                pr_title="Feature B",
+                worktree_path=worktree_path,
+            )
+
+        msg = str(exc_info.value)
+        assert "Branch: feature-b" in msg
+        assert f"Worktree: {worktree_path}" in msg
+
+    def test_no_verify_passes_flag_to_git_commit(
+        self, tmp_path
+    ) -> None:
+        """above() passes --no-verify to git commit."""
+        current_branch = MockBranch(name="feature-a")
+        pr = _make_pr(
+            source_branch="feature-a",
+            destination_branch="main",
+        )
+        repo = _make_repo(
+            current_branch=current_branch,
+            pull_requests=[pr],
+        )
+        command_runner = TrackingCommandRunner()
+        client = _make_client(
+            repos=[repo], command_runner=command_runner
+        )
+        worktree_path = str(tmp_path / "new-worktree")
+
+        client.above(
+            repo=repo,
+            new_branch_name="feature-b",
+            pr_title="Feature B",
+            worktree_path=worktree_path,
+            no_verify=True,
+        )
+
+        commit_cmds = [
+            cmd
+            for cmd, _ in command_runner.commands
+            if "commit" in cmd
+        ]
+        assert len(commit_cmds) == 1
+        assert "--no-verify" in commit_cmds[0]
+
+    def test_no_verify_false_omits_flag(
+        self, tmp_path
+    ) -> None:
+        """above() omits --no-verify when no_verify=False."""
+        current_branch = MockBranch(name="feature-a")
+        pr = _make_pr(
+            source_branch="feature-a",
+            destination_branch="main",
+        )
+        repo = _make_repo(
+            current_branch=current_branch,
+            pull_requests=[pr],
+        )
+        command_runner = TrackingCommandRunner()
+        client = _make_client(
+            repos=[repo], command_runner=command_runner
+        )
+        worktree_path = str(tmp_path / "new-worktree")
+
+        client.above(
+            repo=repo,
+            new_branch_name="feature-b",
+            pr_title="Feature B",
+            worktree_path=worktree_path,
+            no_verify=False,
+        )
+
+        commit_cmds = [
+            cmd
+            for cmd, _ in command_runner.commands
+            if "commit" in cmd
+        ]
+        assert len(commit_cmds) == 1
+        assert "--no-verify" not in commit_cmds[0]
+
+
 class TestAboveDirenv:
     def test_runs_direnv_allow_in_worktree_when_flag_is_set(self, tmp_path) -> None:
         """above() runs 'direnv allow' in the new worktree when run_direnv=True."""
