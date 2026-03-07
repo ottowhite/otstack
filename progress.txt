@@ -50,3 +50,15 @@
   - `SimpleBranch` can be used as a ref for `create_branch` - the implementation just uses `from_branch.name` in `git branch <name> <ref>`, so `origin/main` works fine
   - When adding new steps that require repo info (like working_dir), check all test helpers and test_main.py fixtures too
 ---
+
+## 2026-03-07 - US-004
+- What was implemented: Updated `InteractivePrompter.prompt_below_above_inputs()` to accept optional pre-filled `branch`, `title`, and `worktree` parameters; only prompts for values that are `None`. Updated `main.py` to pass already-provided CLI args to the prompter.
+- Files changed:
+  - `src/otstack/InteractivePrompter.py` - Added `branch`, `title`, `worktree` optional params; skip prompts when values are pre-filled
+  - `src/otstack/main.py` - Pass `args.branch`, `args.title`, `args.worktree` to `prompt_below_above_inputs()`
+  - `test/otstack/test_InteractivePrompter.py` - New test file with 6 tests covering: each single arg provided, two-of-three combinations, and no args provided
+- **Learnings for future iterations:**
+  - Use `_MOD = "otstack.InteractivePrompter.questionary"` constant to keep patch paths under 88 chars
+  - Mock questionary by creating a `MockQuestion` class with `.ask()` method, and use `side_effect` on `questionary.text`/`questionary.confirm` to return them
+  - Track which prompts were called via a `calls: list[str]` that captures prompt text in the `side_effect` function
+---
