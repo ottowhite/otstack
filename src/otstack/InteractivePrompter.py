@@ -43,30 +43,45 @@ def _validate_non_empty(text: str) -> bool | str:
 
 
 class InteractivePrompter:
-    def prompt_below_above_inputs(self, command: str) -> BelowAboveInputs:
-        """Prompt the user for all inputs needed for below/above commands."""
+    def prompt_below_above_inputs(
+        self,
+        command: str,
+        branch: str | None = None,
+        title: str | None = None,
+        worktree: str | None = None,
+    ) -> BelowAboveInputs:
+        """Prompt the user for inputs needed for below/above commands.
+
+        Pre-filled values are used as-is; only missing values are prompted.
+        """
         print(f"\nInteractive mode for 'ots {command}'\n")
 
-        branch = questionary.text(
-            "Branch name:",
-            validate=_validate_branch_name,
-        ).ask()
         if branch is None:
-            raise KeyboardInterrupt()
+            branch_input = questionary.text(
+                "Branch name:",
+                validate=_validate_branch_name,
+            ).ask()
+            if branch_input is None:
+                raise KeyboardInterrupt()
+            branch = branch_input.strip()
 
-        title = questionary.text(
-            "PR title:",
-            validate=_validate_non_empty,
-        ).ask()
         if title is None:
-            raise KeyboardInterrupt()
+            title_input = questionary.text(
+                "PR title:",
+                validate=_validate_non_empty,
+            ).ask()
+            if title_input is None:
+                raise KeyboardInterrupt()
+            title = title_input.strip()
 
-        worktree = questionary.text(
-            "Worktree path:",
-            validate=_validate_non_empty,
-        ).ask()
         if worktree is None:
-            raise KeyboardInterrupt()
+            worktree_input = questionary.text(
+                "Worktree path:",
+                validate=_validate_non_empty,
+            ).ask()
+            if worktree_input is None:
+                raise KeyboardInterrupt()
+            worktree = worktree_input.strip()
 
         direnv = questionary.confirm(
             "Enable direnv in new worktree?",
@@ -83,7 +98,11 @@ class InteractivePrompter:
 
         copy_files: list[str] | None = None
         if copy_files_input.strip():
-            copy_files = [f.strip() for f in copy_files_input.split(",") if f.strip()]
+            copy_files = [
+                f.strip()
+                for f in copy_files_input.split(",")
+                if f.strip()
+            ]
 
         dry_run = questionary.confirm(
             "Dry run (preview without making changes)?",
@@ -93,9 +112,9 @@ class InteractivePrompter:
             raise KeyboardInterrupt()
 
         return BelowAboveInputs(
-            branch=branch.strip(),
-            title=title.strip(),
-            worktree=worktree.strip(),
+            branch=branch,
+            title=title,
+            worktree=worktree,
             direnv=direnv,
             copy_files=copy_files if copy_files else None,
             dry_run=dry_run,

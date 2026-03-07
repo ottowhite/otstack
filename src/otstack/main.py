@@ -182,7 +182,12 @@ def main() -> None:
     if args.command in ("below", "above"):
         if not all([args.branch, args.title, args.worktree]):
             prompter = InteractivePrompter()
-            inputs = prompter.prompt_below_above_inputs(args.command)
+            inputs = prompter.prompt_below_above_inputs(
+                args.command,
+                branch=args.branch,
+                title=args.title,
+                worktree=args.worktree,
+            )
             args.branch = inputs.branch
             args.title = inputs.title
             args.worktree = inputs.worktree
