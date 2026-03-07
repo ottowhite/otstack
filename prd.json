@@ -1,0 +1,240 @@
+{
+  "project": "OtStack",
+  "branchName": "ralph/below-above-robustness",
+  "description": "Fix bugs and add missing scenarios for ots below/above commands to make PR stacking reliable in all real-world user journeys",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Fix get_branches to only return actual branches",
+      "description": "As a developer, I want get_branches() to only return real git branches, not tags or other refs, so the 'branch already exists' check doesn't produce false positives.",
+      "acceptanceCriteria": [
+        "get_branches() in PyGitHubRepository uses self._git_repo.heads (or .branches) instead of self._git_repo.references",
+        "Tags, stash refs, and other non-branch refs are excluded from results",
+        "Unit test verifies a tag with the same name as a proposed branch does not trigger 'already exists' error",
+        "Existing get_branches tests still pass",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Check remote branch existence in below/above validation",
+      "description": "As a user, I want the 'branch already exists' check to also check remote branches, so I don't get a confusing push failure later.",
+      "acceptanceCriteria": [
+        "Add get_remote_branches() method to Repository protocol that returns list of remote branch names",
+        "Implement get_remote_branches() in PyGitHubRepository by reading origin/ refs from git repo",
+        "below() and above() check both get_branches() and get_remote_branches() before proceeding",
+        "Error message says 'Branch foo already exists on remote' when only remote exists",
+        "Unit tests cover: local-only exists, remote-only exists, both exist, neither exists",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Fetch remote before creating branch in below",
+      "description": "As a user, I want below to fetch the latest remote state before creating the new branch, so it branches from the up-to-date destination rather than a stale local ref.",
+      "acceptanceCriteria": [
+        "below() calls CommandRunner.run(['git', 'fetch', 'origin', destination_branch]) before create_branch",
+        "New branch is created from origin/destination (not potentially-stale local ref) by updating create_branch call",
+        "Dry-run output mentions the fetch step in the action list",
+        "BelowDryRunResult.format_output() includes fetch as a numbered step",
+        "Unit tests verify fetch command is called with correct args",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "Fix interactive mode to preserve provided CLI args",
+      "description": "As a user, I want to pass --branch foo and only be prompted for the missing args, so that I don't have to re-type values I already provided.",
+      "acceptanceCriteria": [
+        "InteractivePrompter.prompt_below_above_inputs() accepts optional pre-filled values for branch, title, worktree",
+        "main.py passes any already-provided args to the prompter so they are not re-asked",
+        "If --branch is provided but --title and --worktree are missing, only title and worktree are prompted",
+        "If --branch and --title are provided but --worktree is missing, only worktree is prompted",
+        "Unit tests cover all partial-arg combinations (1 of 3, 2 of 3 provided)",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "Auto-default worktree path from branch name",
+      "description": "As a user, I want the worktree path to default to ../<branch-name> so I don't have to type it every time.",
+      "acceptanceCriteria": [
+        "When --worktree is omitted and --branch is provided, worktree defaults to ../<branch-name> relative to the repo working directory",
+        "Interactive mode shows the default path and lets user accept with Enter or override by typing",
+        "The --worktree flag still works to explicitly override the default",
+        "Unit tests verify the default is computed and applied correctly",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-006",
+      "title": "Add draft PR support to Repository protocol and PyGitHub implementation",
+      "description": "As a developer, I need the create_pr interface to support draft PRs so below/above can create drafts.",
+      "acceptanceCriteria": [
+        "Repository.create_pr protocol gains an optional draft: bool = False parameter",
+        "PyGitHubRepository.create_pr passes draft=True to self._gh_repo.create_pull() when draft is True",
+        "MockRepository in test helpers also accepts the draft parameter",
+        "Existing create_pr callers still work without passing draft (default False)",
+        "Unit tests verify draft=True is passed through to PyGithub",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-007",
+      "title": "Add --draft flag to below and above CLI commands",
+      "description": "As a user, I want to create new stack entries as draft PRs so they don't trigger CI or review requests prematurely.",
+      "acceptanceCriteria": [
+        "Add --draft / -d flag to both below and above argparse definitions in main.py",
+        "Flag is passed through to client.below() and client.above() which pass it to repo.create_pr()",
+        "Interactive mode asks 'Create as draft PR?' (default: yes)",
+        "Dry-run output shows '(draft)' next to the PR creation step when applicable",
+        "BelowDryRunResult and AboveDryRunResult gain a draft field and format_output reflects it",
+        "Unit tests verify draft flag flows through the full call chain",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-008",
+      "title": "Handle git push failures with clear error messages",
+      "description": "As a user, I want clear error messages when push fails, not raw subprocess tracebacks.",
+      "acceptanceCriteria": [
+        "git push failures in below() and above() are caught and re-raised as ValueError",
+        "Error message includes the branch name and suggests checking network connectivity and authentication",
+        "If push fails after worktree creation, error message lists what was already created (branch, worktree path)",
+        "Unit tests simulate push failure via TrackingCommandRunner and verify error message content",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-009",
+      "title": "Handle pre-commit hook failures on empty commit",
+      "description": "As a user, I want a clear error when my pre-commit hooks reject the initialization commit.",
+      "acceptanceCriteria": [
+        "git commit --allow-empty failures in below() and above() are caught with a human-readable error",
+        "Error message explains that pre-commit hooks rejected the commit",
+        "Error message suggests checking hook output or using --no-verify flag",
+        "Add --no-verify flag to below/above that passes --no-verify to git commit",
+        "Unit tests simulate commit failure and verify error message",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-010",
+      "title": "Add partial failure recovery guidance",
+      "description": "As a user, when the command fails midway through, I want to know what was already done and how to recover.",
+      "acceptanceCriteria": [
+        "below() and above() track completed mutation steps in a list as they execute",
+        "On any exception after mutations have started, a recovery message is printed before re-raising",
+        "Recovery message lists each completed step and the exact command to undo it (e.g. git worktree remove <path>, git branch -D <name>)",
+        "Unit tests verify recovery messages for failures at push step and PR creation step",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-011",
+      "title": "Support below/above when no PR exists - create PR first",
+      "description": "As a user, I want to run ots below or ots above even when my current branch has no open PR, so I can start building a stack from scratch.",
+      "acceptanceCriteria": [
+        "When no PR exists for the current branch, below/above prompts: 'No PR found for branch X. Create one now?'",
+        "If user confirms, prompts for PR title (default: branch name humanized) and destination (default: repo default branch)",
+        "Creates the PR for the current branch, then proceeds with the below/above operation normally",
+        "In non-interactive mode (all args provided), add --create-pr flag that creates the missing PR automatically using branch name as title and default branch as destination",
+        "Without --create-pr in non-interactive mode, errors with a clear message explaining the flag",
+        "Dry-run shows the initial PR creation as an additional numbered step before the rest",
+        "Unit tests for: interactive create flow, non-interactive with --create-pr, non-interactive without flag (error)",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 11,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-012",
+      "title": "Integration tests - below simple stack and mid-stack journeys",
+      "description": "As a developer, I want integration tests using real local git repos to verify below works end-to-end.",
+      "acceptanceCriteria": [
+        "Test fixture creates a real local git repo (using tmp_path) with branches, commits, and a mock GitHub client",
+        "Journey test: below on simple stack - branch with PR targeting main, insert below, verify new branch exists, worktree exists, PR created, original PR retargeted",
+        "Journey test: below mid-stack - PR targets another feature branch (not main), insert below, verify retarget points to intermediate branch",
+        "All git operations (branch, commit, worktree) are real; only GitHub API is mocked",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 12,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-013",
+      "title": "Integration tests - above journeys and chained operations",
+      "description": "As a developer, I want integration tests to verify above works end-to-end and that below/above can be chained.",
+      "acceptanceCriteria": [
+        "Journey test: above on simple stack - branch with PR targeting main, insert above, verify new branch created from current, PR targets current branch",
+        "Journey test: above on top of 3-deep stack - verify PR targets current branch correctly",
+        "Journey test: below then above on same branch - verify both operations chain correctly without conflicts",
+        "All git operations are real; only GitHub API is mocked",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 13,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-014",
+      "title": "Integration tests - worktree context and file copying",
+      "description": "As a developer, I want integration tests verifying commands work from inside a worktree and that file copying works.",
+      "acceptanceCriteria": [
+        "Journey test: running below from inside a worktree - verify command works when cwd is a worktree, not the main repo checkout",
+        "Journey test: file copying - create files in source repo, run below with --copy, verify files are present in the new worktree",
+        "All git operations are real; only GitHub API is mocked",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 14,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}

@@ -93,6 +93,82 @@ class TestBelow:
                 worktree_path="/tmp/project-prep-work",
             )
 
+    def test_raises_error_when_branch_exists_on_remote(self) -> None:
+        """below() raises ValueError when branch exists on remote."""
+        current_branch = MockBranch(name="feature-branch")
+        pr = _make_pr(
+            source_branch="feature-branch", destination_branch="main"
+        )
+        repo = _make_repo(
+            current_branch=current_branch,
+            pull_requests=[pr],
+            remote_branches=["prep-work"],
+        )
+        client = _make_client(repos=[repo])
+
+        with pytest.raises(
+            ValueError,
+            match="Branch 'prep-work' already exists on remote",
+        ):
+            client.below(
+                repo=repo,
+                new_branch_name="prep-work",
+                pr_title="Preparatory refactor",
+                worktree_path="/tmp/project-prep-work",
+            )
+
+    def test_raises_error_when_branch_exists_both_locally_and_remote(
+        self,
+    ) -> None:
+        """below() raises ValueError when branch exists locally and on remote."""
+        current_branch = MockBranch(name="feature-branch")
+        pr = _make_pr(
+            source_branch="feature-branch", destination_branch="main"
+        )
+        existing_branch = MockBranch(name="prep-work")
+        repo = _make_repo(
+            current_branch=current_branch,
+            pull_requests=[pr],
+            branches=[existing_branch],
+            remote_branches=["prep-work"],
+        )
+        client = _make_client(repos=[repo])
+
+        with pytest.raises(
+            ValueError, match="Branch 'prep-work' already exists"
+        ):
+            client.below(
+                repo=repo,
+                new_branch_name="prep-work",
+                pr_title="Preparatory refactor",
+                worktree_path="/tmp/project-prep-work",
+            )
+
+    def test_succeeds_when_branch_does_not_exist_anywhere(self) -> None:
+        """below() proceeds when branch doesn't exist locally or remotely."""
+        current_branch = MockBranch(name="feature-branch")
+        pr = _make_pr(
+            source_branch="feature-branch", destination_branch="main"
+        )
+        repo = _make_repo(
+            current_branch=current_branch,
+            pull_requests=[pr],
+            branches=[],
+            remote_branches=[],
+            working_dir="/tmp/repo",
+        )
+        client = _make_client(repos=[repo])
+
+        result = client.below(
+            repo=repo,
+            new_branch_name="prep-work",
+            pr_title="Preparatory refactor",
+            worktree_path="/tmp/project-prep-work",
+            dry_run=True,
+        )
+
+        assert result is not None
+
     def test_raises_error_when_worktree_path_already_exists(self, tmp_path) -> None:
         """below() raises ValueError when worktree path already exists."""
         current_branch = MockBranch(name="feature-branch")
@@ -735,12 +811,14 @@ def _make_repo(
     pull_requests: list[MockPullRequest] | None = None,
     has_uncommitted_changes: bool = False,
     branches: list[MockBranch] | None = None,
+    remote_branches: list[str] | None = None,
     working_dir: str | None = None,
     name: str = "test-repo",
 ) -> MockRepository:
     """Create a MockRepository with configurable current branch."""
     prs: list[MockPullRequest] = pull_requests or []
     branch_list: list[MockBranch] = branches or []
+    remote_list: list[str] = remote_branches or []
     return MockRepository(
         name=name,
         full_name=f"test-user/{name}",
@@ -751,6 +829,7 @@ def _make_repo(
         _current_branch=current_branch,
         _has_uncommitted_changes=has_uncommitted_changes,
         _branches=branch_list,
+        _remote_branches=remote_list,
         _working_dir=working_dir,
     )
 

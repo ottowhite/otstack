@@ -257,6 +257,58 @@ class TestPyGitHubRepositoryGetBranches:
         assert "master" in branch_names
 
 
+class TestPyGitHubRepositoryGetRemoteBranches:
+    def test_returns_empty_when_no_git_repo(self) -> None:
+        """get_remote_branches() returns empty list when no git repo."""
+        repo = _make_pygithub_repo(git_repo=None)
+
+        result = repo.get_remote_branches()
+
+        assert result == []
+
+    def test_returns_remote_branch_names(self, tmp_path) -> None:
+        """get_remote_branches() returns branch names from origin."""
+        # Create a bare "remote" repo and clone it
+        bare_path = tmp_path / "bare.git"
+        Repo.init(bare_path, bare=True)
+
+        clone_path = tmp_path / "clone"
+        clone = Repo.clone_from(str(bare_path), str(clone_path))
+        (clone_path / "file.txt").write_text("content")
+        clone.index.add(["file.txt"])
+        clone.index.commit("Initial commit")
+        clone.git.push("origin", "master")
+
+        # Create another branch and push it
+        clone.git.branch("feature-1")
+        clone.git.push("origin", "feature-1")
+
+        repo = _make_pygithub_repo(git_repo=clone)
+
+        result = repo.get_remote_branches()
+
+        assert "master" in result
+        assert "feature-1" in result
+
+    def test_excludes_head_ref(self, tmp_path) -> None:
+        """get_remote_branches() excludes the HEAD symbolic ref."""
+        bare_path = tmp_path / "bare.git"
+        Repo.init(bare_path, bare=True)
+
+        clone_path = tmp_path / "clone"
+        clone = Repo.clone_from(str(bare_path), str(clone_path))
+        (clone_path / "file.txt").write_text("content")
+        clone.index.add(["file.txt"])
+        clone.index.commit("Initial commit")
+        clone.git.push("origin", "master")
+
+        repo = _make_pygithub_repo(git_repo=clone)
+
+        result = repo.get_remote_branches()
+
+        assert "HEAD" not in result
+
+
 class TestPyGitHubRepositoryCreateBranch:
     def test_raises_value_error_when_no_git_repo(self) -> None:
         """create_branch() raises ValueError when _git_repo is None."""

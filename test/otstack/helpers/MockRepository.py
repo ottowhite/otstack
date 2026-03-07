@@ -17,6 +17,7 @@ class MockRepository(Repository):
     private: bool
     url: str
     _branches: Sequence[Branch] = field(default_factory=list)
+    _remote_branches: Sequence[str] = field(default_factory=list)
     _pull_requests: Sequence[PullRequest] = field(default_factory=list)
     _local_branches: Sequence[Branch] | None = field(default_factory=list)
     _current_branch: Branch | None = field(default=None)
@@ -43,6 +44,9 @@ class MockRepository(Repository):
 
     def get_branches(self) -> list[Branch]:
         return list(self._branches)
+
+    def get_remote_branches(self) -> list[str]:
+        return list(self._remote_branches)
 
     def get_local_branches(self) -> list[Branch]:
         if self._local_branches is None:

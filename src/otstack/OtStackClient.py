@@ -460,10 +460,15 @@ class OtStackClient:
                 "This is ambiguous."
             )
 
-        # Check if new branch already exists
+        # Check if new branch already exists (local or remote)
         existing_branches = repo.get_branches()
         if any(b.name == new_branch_name for b in existing_branches):
             raise ValueError(f"Branch '{new_branch_name}' already exists.")
+        remote_branches = repo.get_remote_branches()
+        if new_branch_name in remote_branches:
+            raise ValueError(
+                f"Branch '{new_branch_name}' already exists on remote."
+            )
 
         # Check if worktree path already exists
         if os.path.exists(worktree_path):
@@ -589,10 +594,15 @@ class OtStackClient:
                 "This is ambiguous."
             )
 
-        # Check if new branch already exists
+        # Check if new branch already exists (local or remote)
         existing_branches = repo.get_branches()
         if any(b.name == new_branch_name for b in existing_branches):
             raise ValueError(f"Branch '{new_branch_name}' already exists.")
+        remote_branches = repo.get_remote_branches()
+        if new_branch_name in remote_branches:
+            raise ValueError(
+                f"Branch '{new_branch_name}' already exists on remote."
+            )
 
         # Check if worktree path already exists
         if os.path.exists(worktree_path):

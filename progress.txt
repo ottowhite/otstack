@@ -1,0 +1,18 @@
+## Codebase Patterns
+- `PyGitHubRepository` uses GitPython's `self._git_repo.heads` to get branches (not `.references` which includes tags/stash)
+- Test helpers: `_make_repo()` for MockRepository, `_make_pygithub_repo()` for PyGitHubRepository with real git repos
+- Line length limit is 88 characters (ruff enforced)
+- Pre-commit hooks run lint, typecheck, and tests automatically
+- Mock classes live in `test/otstack/helpers/` (MockBranch, MockRepository, MockPullRequest, etc.)
+- `TrackingCommandRunner` in test helpers tracks commands for verification
+
+## 2026-03-07 - US-001
+- What was implemented: Fixed `get_branches()` in `PyGitHubRepository` to use `self._git_repo.heads` instead of `self._git_repo.references`, so tags, stash refs, and other non-branch refs are excluded
+- Files changed:
+  - `src/otstack/PyGitHubRepository.py` - Changed iteration from `references` to `heads`
+  - `test/otstack/test_Repository.py` - Added `TestPyGitHubRepositoryGetBranches` with 4 tests: empty when no git repo, returns only actual branches, tag does not appear as branch, stash ref does not appear as branch
+- **Learnings for future iterations:**
+  - GitPython's `repo.references` includes ALL refs (branches, tags, stash, notes, etc.) - always use `repo.heads` for branches only
+  - The `hasattr(ref, "name")` check in the old code was unnecessary since all refs have names
+  - Tests using real git repos (via `tmp_path`) are in `test_Repository.py`, while mock-based tests are in `test_below.py`/`test_above.py`
+---

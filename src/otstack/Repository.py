@@ -27,6 +27,10 @@ class Repository(Protocol):
         """Get all branches in this repository."""
         ...
 
+    def get_remote_branches(self) -> list[str]:
+        """Get all remote branch names (from origin)."""
+        ...
+
     def get_local_branches(self) -> list[Branch]:
         """
         Get all branches with local filesystem checkouts (main repo and worktrees).

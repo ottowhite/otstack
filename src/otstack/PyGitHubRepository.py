@@ -108,6 +108,18 @@ class PyGitHubRepository(Repository):
             branches.append(branch)
         return branches
 
+    def get_remote_branches(self) -> list[str]:
+        """Get all remote branch names (from origin)."""
+        if self._git_repo is None:
+            return []
+
+        remote_branches: list[str] = []
+        for ref in self._git_repo.remote().refs:
+            name = ref.remote_head
+            if name != "HEAD":
+                remote_branches.append(name)
+        return remote_branches
+
     def get_local_branches(self) -> list[Branch]:
         """
         Get all branches with local filesystem checkouts (main repo and worktrees).
