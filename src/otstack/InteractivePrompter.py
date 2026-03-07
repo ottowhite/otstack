@@ -12,6 +12,7 @@ class BelowAboveInputs:
     direnv: bool
     copy_files: list[str] | None
     dry_run: bool
+    draft: bool
 
 
 def _validate_branch_name(name: str) -> bool | str:
@@ -85,6 +86,13 @@ class InteractivePrompter:
                 raise KeyboardInterrupt()
             worktree = worktree_input.strip()
 
+        draft = questionary.confirm(
+            "Create as draft PR?",
+            default=True,
+        ).ask()
+        if draft is None:
+            raise KeyboardInterrupt()
+
         direnv = questionary.confirm(
             "Enable direnv in new worktree?",
             default=False,
@@ -120,4 +128,5 @@ class InteractivePrompter:
             direnv=direnv,
             copy_files=copy_files if copy_files else None,
             dry_run=dry_run,
+            draft=draft,
         )

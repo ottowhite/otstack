@@ -345,6 +345,61 @@ class TestBelow:
         assert destination.name == "main"
         assert title == "Preparatory refactor"
 
+    def test_passes_draft_flag_to_create_pr(self, tmp_path) -> None:
+        """below() passes draft=True to repo.create_pr()."""
+        current_branch = MockBranch(name="feature-branch")
+        pr = _make_pr(
+            source_branch="feature-branch",
+            destination_branch="main",
+        )
+        repo = _make_repo(
+            current_branch=current_branch,
+            pull_requests=[pr],
+            working_dir="/tmp/repo",
+        )
+        command_runner = TrackingCommandRunner()
+        client = _make_client(repos=[repo], command_runner=command_runner)
+        worktree_path = str(tmp_path / "new-worktree")
+
+        client.below(
+            repo=repo,
+            new_branch_name="prep-work",
+            pr_title="Preparatory refactor",
+            worktree_path=worktree_path,
+            draft=True,
+        )
+
+        assert len(repo.created_prs) == 1
+        _, _, _, draft = repo.created_prs[0]
+        assert draft is True
+
+    def test_draft_defaults_to_false(self, tmp_path) -> None:
+        """below() defaults draft=False in create_pr()."""
+        current_branch = MockBranch(name="feature-branch")
+        pr = _make_pr(
+            source_branch="feature-branch",
+            destination_branch="main",
+        )
+        repo = _make_repo(
+            current_branch=current_branch,
+            pull_requests=[pr],
+            working_dir="/tmp/repo",
+        )
+        command_runner = TrackingCommandRunner()
+        client = _make_client(repos=[repo], command_runner=command_runner)
+        worktree_path = str(tmp_path / "new-worktree")
+
+        client.below(
+            repo=repo,
+            new_branch_name="prep-work",
+            pr_title="Preparatory refactor",
+            worktree_path=worktree_path,
+        )
+
+        assert len(repo.created_prs) == 1
+        _, _, _, draft = repo.created_prs[0]
+        assert draft is False
+
     def test_retargets_original_pr_to_new_branch(self, tmp_path) -> None:
         """below() changes original PR's destination to the new branch."""
         current_branch = MockBranch(name="feature-branch")
@@ -756,6 +811,69 @@ class TestBelowDryRun:
         assert ".env" in output
         assert ".env.local" in output
         assert "direnv allow" in output
+
+    def test_dry_run_draft_shows_draft_label(self, tmp_path) -> None:
+        """BelowDryRunResult shows '(draft)' when draft=True."""
+        from otstack.BelowDryRunResult import BelowDryRunResult
+
+        current_branch = MockBranch(name="feature-branch")
+        main_branch = MockBranch(name="main")
+        pr = _make_pr(
+            source_branch="feature-branch",
+            destination_branch="main",
+            destination_branch_obj=main_branch,
+        )
+        repo = _make_repo(
+            current_branch=current_branch, pull_requests=[pr]
+        )
+        client = _make_client(repos=[repo])
+        worktree_path = str(tmp_path / "new-worktree")
+
+        result = client.below(
+            repo=repo,
+            new_branch_name="prep-work",
+            pr_title="Preparatory refactor",
+            worktree_path=worktree_path,
+            dry_run=True,
+            draft=True,
+        )
+
+        assert isinstance(result, BelowDryRunResult)
+        output = result.format_output()
+        assert "Create PR (draft):" in output
+
+    def test_dry_run_no_draft_label_when_not_draft(
+        self, tmp_path
+    ) -> None:
+        """BelowDryRunResult omits '(draft)' when draft=False."""
+        from otstack.BelowDryRunResult import BelowDryRunResult
+
+        current_branch = MockBranch(name="feature-branch")
+        main_branch = MockBranch(name="main")
+        pr = _make_pr(
+            source_branch="feature-branch",
+            destination_branch="main",
+            destination_branch_obj=main_branch,
+        )
+        repo = _make_repo(
+            current_branch=current_branch, pull_requests=[pr]
+        )
+        client = _make_client(repos=[repo])
+        worktree_path = str(tmp_path / "new-worktree")
+
+        result = client.below(
+            repo=repo,
+            new_branch_name="prep-work",
+            pr_title="Preparatory refactor",
+            worktree_path=worktree_path,
+            dry_run=True,
+            draft=False,
+        )
+
+        assert isinstance(result, BelowDryRunResult)
+        output = result.format_output()
+        assert "(draft)" not in output
+        assert "Create PR:" in output
 
     def test_dry_run_still_validates_detached_head(self) -> None:
         """dry_run=True still raises error when in detached HEAD state."""

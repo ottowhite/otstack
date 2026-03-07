@@ -69,6 +69,7 @@ Insert a new PR "below" the current PR in a stack. Creates a new branch and PR t
 **Optional arguments:**
 - `--repo, -r` - Repository name (owner/repo), auto-detected if omitted
 - `--path, -p` - Path to local git repository (defaults to `.`)
+- `--draft, -d` - Create the new PR as a draft
 - `--direnv` - Run `direnv allow` in new worktree after creation
 - `--copy, -c` - Copy file from current worktree to new (repeatable)
 - `--dry-run, -n` - Show what would happen without making any changes
@@ -93,6 +94,7 @@ Insert a new PR "above" the current PR in a stack. Creates a new branch from the
 **Optional arguments:**
 - `--repo, -r` - Repository name (owner/repo), auto-detected if omitted
 - `--path, -p` - Path to local git repository (defaults to `.`)
+- `--draft, -d` - Create the new PR as a draft
 - `--direnv` - Run `direnv allow` in new worktree after creation
 - `--copy, -c` - Copy file from current worktree to new (repeatable)
 - `--dry-run, -n` - Show what would happen without making any changes

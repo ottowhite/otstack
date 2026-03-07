@@ -216,6 +216,82 @@ class TestPromptBelowAboveInputsPrefilledValues:
         assert "Worktree path:" in calls
 
 
+class TestDraftPrompt:
+    """Tests for draft PR prompt in interactive mode."""
+
+    def _mock_ask(self, return_value):
+        class MockQuestion:
+            def ask(self):
+                return return_value
+
+        return MockQuestion()
+
+    def test_draft_prompt_is_asked_with_default_true(self) -> None:
+        """Interactive mode asks 'Create as draft PR?' default yes."""
+        prompter = InteractivePrompter()
+        confirm_calls: list[tuple[str, bool | None]] = []
+
+        def fake_text(prompt: str, **kwargs) -> object:
+            if "branch" in prompt.lower():
+                return self._mock_ask("my-branch")
+            if "title" in prompt.lower():
+                return self._mock_ask("Title")
+            if "worktree" in prompt.lower():
+                return self._mock_ask("../wt")
+            return self._mock_ask("")
+
+        def fake_confirm(prompt: str, **kwargs) -> object:
+            default: bool | None = kwargs.get("default", None)
+            confirm_calls.append((prompt, default))
+            return self._mock_ask(True)
+
+        with (
+            patch(f"{_MOD}.text", side_effect=fake_text),
+            patch(
+                f"{_MOD}.confirm", side_effect=fake_confirm
+            ),
+        ):
+            inputs = prompter.prompt_below_above_inputs("below")
+
+        # Draft prompt should be asked with default=True
+        draft_calls = [
+            (p, d)
+            for p, d in confirm_calls
+            if "draft" in p.lower()
+        ]
+        assert len(draft_calls) == 1
+        assert draft_calls[0][1] is True
+        assert inputs.draft is True
+
+    def test_draft_false_when_user_declines(self) -> None:
+        """Draft is False when user declines the prompt."""
+        prompter = InteractivePrompter()
+
+        def fake_text(prompt, **kwargs):
+            if "branch" in prompt.lower():
+                return self._mock_ask("my-branch")
+            if "title" in prompt.lower():
+                return self._mock_ask("Title")
+            if "worktree" in prompt.lower():
+                return self._mock_ask("../wt")
+            return self._mock_ask("")
+
+        def fake_confirm(prompt, **kwargs):
+            if "draft" in prompt.lower():
+                return self._mock_ask(False)
+            return self._mock_ask(False)
+
+        with (
+            patch(f"{_MOD}.text", side_effect=fake_text),
+            patch(
+                f"{_MOD}.confirm", side_effect=fake_confirm
+            ),
+        ):
+            inputs = prompter.prompt_below_above_inputs("below")
+
+        assert inputs.draft is False
+
+
 class TestWorktreeDefaultFromBranch:
     """Tests that worktree prompt shows default path from branch."""
 

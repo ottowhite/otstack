@@ -141,6 +141,51 @@ class TestAboveDryRunResult:
         assert ".env.local" in output
         assert "direnv allow" in output
 
+    def test_format_output_shows_draft_label(self) -> None:
+        """AboveDryRunResult shows '(draft)' when draft=True."""
+        current_pr = _make_pr(
+            source_branch="feature-a",
+            destination_branch="main",
+            title="Feature A",
+        )
+
+        result = AboveDryRunResult(
+            current_branch_name="feature-a",
+            current_pr=current_pr,
+            new_branch_name="feature-b",
+            pr_title="Feature B",
+            worktree_path="/tmp/new-worktree",
+            copy_files=None,
+            run_direnv=False,
+            draft=True,
+        )
+
+        output = result.format_output()
+        assert "Create PR (draft):" in output
+
+    def test_format_output_no_draft_label_when_not_draft(self) -> None:
+        """AboveDryRunResult omits '(draft)' when draft=False."""
+        current_pr = _make_pr(
+            source_branch="feature-a",
+            destination_branch="main",
+            title="Feature A",
+        )
+
+        result = AboveDryRunResult(
+            current_branch_name="feature-a",
+            current_pr=current_pr,
+            new_branch_name="feature-b",
+            pr_title="Feature B",
+            worktree_path="/tmp/new-worktree",
+            copy_files=None,
+            run_direnv=False,
+            draft=False,
+        )
+
+        output = result.format_output()
+        assert "(draft)" not in output
+        assert "Create PR:" in output
+
 
 class TestAbove:
     def test_raises_error_when_in_detached_head_state(self) -> None:
@@ -406,6 +451,59 @@ class TestAbove:
         assert source.name == "feature-b"
         assert destination.name == "feature-a"  # Key difference from below
         assert title == "Feature B"
+
+    def test_passes_draft_flag_to_create_pr(self, tmp_path) -> None:
+        """above() passes draft=True to repo.create_pr()."""
+        current_branch = MockBranch(name="feature-a")
+        pr = _make_pr(
+            source_branch="feature-a", destination_branch="main"
+        )
+        repo = _make_repo(
+            current_branch=current_branch, pull_requests=[pr]
+        )
+        command_runner = TrackingCommandRunner()
+        client = _make_client(
+            repos=[repo], command_runner=command_runner
+        )
+        worktree_path = str(tmp_path / "new-worktree")
+
+        client.above(
+            repo=repo,
+            new_branch_name="feature-b",
+            pr_title="Feature B",
+            worktree_path=worktree_path,
+            draft=True,
+        )
+
+        assert len(repo.created_prs) == 1
+        _, _, _, draft = repo.created_prs[0]
+        assert draft is True
+
+    def test_draft_defaults_to_false(self, tmp_path) -> None:
+        """above() defaults draft=False in create_pr()."""
+        current_branch = MockBranch(name="feature-a")
+        pr = _make_pr(
+            source_branch="feature-a", destination_branch="main"
+        )
+        repo = _make_repo(
+            current_branch=current_branch, pull_requests=[pr]
+        )
+        command_runner = TrackingCommandRunner()
+        client = _make_client(
+            repos=[repo], command_runner=command_runner
+        )
+        worktree_path = str(tmp_path / "new-worktree")
+
+        client.above(
+            repo=repo,
+            new_branch_name="feature-b",
+            pr_title="Feature B",
+            worktree_path=worktree_path,
+        )
+
+        assert len(repo.created_prs) == 1
+        _, _, _, draft = repo.created_prs[0]
+        assert draft is False
 
     def test_does_not_retarget_current_pr(self, tmp_path) -> None:
         """above() does NOT change the current PR's destination (unlike below)."""

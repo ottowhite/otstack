@@ -15,6 +15,7 @@ class BelowDryRunResult:
     original_destination_name: str
     copy_files: list[str] | None
     run_direnv: bool
+    draft: bool = False
 
     def format_output(self) -> str:
         """Format the dry-run result for display."""
@@ -49,9 +50,12 @@ class BelowDryRunResult:
 
         lines.append(f"  {step}. Push '{self.new_branch_name}' to origin")
         step += 1
+        draft_label = " (draft)" if self.draft else ""
         lines.append(
-            f"  {step}. Create PR: '{self.new_branch_name}' -> "
-            f"'{self.original_destination_name}' with title \"{self.pr_title}\""
+            f"  {step}. Create PR{draft_label}:"
+            f" '{self.new_branch_name}' -> "
+            f"'{self.original_destination_name}'"
+            f" with title \"{self.pr_title}\""
         )
         step += 1
         lines.append(

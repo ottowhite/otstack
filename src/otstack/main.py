@@ -111,6 +111,12 @@ def main() -> None:
         help="Copy a file from current to new worktree (can be repeated)",
     )
     below_parser.add_argument(
+        "--draft",
+        "-d",
+        action="store_true",
+        help="Create the new PR as a draft",
+    )
+    below_parser.add_argument(
         "--dry-run",
         "-n",
         action="store_true",
@@ -171,6 +177,12 @@ def main() -> None:
         ),
     )
     above_parser.add_argument(
+        "--draft",
+        "-d",
+        action="store_true",
+        help="Create the new PR as a draft",
+    )
+    above_parser.add_argument(
         "--dry-run",
         "-n",
         action="store_true",
@@ -202,6 +214,7 @@ def main() -> None:
             args.direnv = inputs.direnv
             args.copy_files = inputs.copy_files
             args.dry_run = inputs.dry_run
+            args.draft = inputs.draft
 
     try:
         local_path = getattr(args, "path", None) or "."
@@ -226,6 +239,7 @@ def main() -> None:
                     copy_files=args.copy_files,
                     run_direnv=args.direnv,
                     dry_run=args.dry_run,
+                    draft=args.draft,
                 )
                 if isinstance(result, BelowDryRunResult):
                     print(result.format_output())
@@ -246,6 +260,7 @@ def main() -> None:
                     copy_files=args.copy_files,
                     run_direnv=args.direnv,
                     dry_run=args.dry_run,
+                    draft=args.draft,
                 )
                 if isinstance(result, AboveDryRunResult):
                     print(result.format_output())

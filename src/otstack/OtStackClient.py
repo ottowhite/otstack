@@ -426,6 +426,7 @@ class OtStackClient:
         copy_files: list[str] | None = None,
         run_direnv: bool = False,
         dry_run: bool = False,
+        draft: bool = False,
     ) -> BelowResult | BelowDryRunResult:
         """
         Insert a new PR below the current PR in the stack.
@@ -492,6 +493,7 @@ class OtStackClient:
                 original_destination_name=original_destination.name,
                 copy_files=copy_files,
                 run_direnv=run_direnv,
+                draft=draft,
             )
 
         # Fetch latest remote state for the destination branch
@@ -547,7 +549,9 @@ class OtStackClient:
         )
 
         # Create PR from new branch to original destination
-        new_pr = repo.create_pr(new_branch, original_destination, pr_title)
+        new_pr = repo.create_pr(
+            new_branch, original_destination, pr_title, draft=draft
+        )
 
         # Retarget original PR to new branch
         current_pr.change_destination(new_branch)
@@ -568,6 +572,7 @@ class OtStackClient:
         copy_files: list[str] | None = None,
         run_direnv: bool = False,
         dry_run: bool = False,
+        draft: bool = False,
     ) -> AboveResult | AboveDryRunResult:
         """
         Insert a new PR above the current PR in the stack.
@@ -632,6 +637,7 @@ class OtStackClient:
                 worktree_path=worktree_path,
                 copy_files=copy_files,
                 run_direnv=run_direnv,
+                draft=draft,
             )
 
         # Create new branch from current branch (key difference from below)
@@ -682,7 +688,9 @@ class OtStackClient:
         )
 
         # Create PR from new branch to current branch (key difference from below)
-        new_pr = repo.create_pr(new_branch, current_branch, pr_title)
+        new_pr = repo.create_pr(
+            new_branch, current_branch, pr_title, draft=draft
+        )
 
         # Note: No retargeting needed for above() - the new PR targets current branch
 

@@ -14,6 +14,7 @@ class AboveDryRunResult:
     worktree_path: str
     copy_files: list[str] | None
     run_direnv: bool
+    draft: bool = False
 
     def format_output(self) -> str:
         """Format the dry-run result for display."""
@@ -45,9 +46,12 @@ class AboveDryRunResult:
 
         lines.append(f"  {step}. Push '{self.new_branch_name}' to origin")
         step += 1
+        draft_label = " (draft)" if self.draft else ""
         lines.append(
-            f"  {step}. Create PR: '{self.new_branch_name}' -> "
-            f"'{self.current_branch_name}' with title \"{self.pr_title}\""
+            f"  {step}. Create PR{draft_label}:"
+            f" '{self.new_branch_name}' -> "
+            f"'{self.current_branch_name}'"
+            f" with title \"{self.pr_title}\""
         )
 
         return "\n".join(lines)
