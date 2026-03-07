@@ -226,6 +226,15 @@ class PyGitHubRepository(Repository):
 
         self._git_repo.git.worktree("add", path, branch.name)
 
+    def get_default_branch(self) -> str:
+        """Get the default branch name (e.g. 'main' or 'master')."""
+        if self._gh_repo is None:
+            raise ValueError(
+                "Cannot determine default branch without "
+                "GitHub repository reference"
+            )
+        return self._gh_repo.default_branch
+
     def get_working_dir(self) -> str:
         """
         Get the working directory path for this repository.

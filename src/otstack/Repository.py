@@ -85,6 +85,10 @@ class Repository(Protocol):
         """
         ...
 
+    def get_default_branch(self) -> str:
+        """Get the default branch name (e.g. 'main' or 'master')."""
+        ...
+
     def get_working_dir(self) -> str:
         """
         Get the working directory path for this repository.

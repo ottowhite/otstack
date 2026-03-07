@@ -29,6 +29,7 @@ class MockRepository(Repository):
     )
     _working_dir: str | None = field(default=None)
     _raise_on_create_pr: bool = field(default=False)
+    _default_branch: str = field(default="main")
 
     def get_open_pull_requests(self) -> list[PullRequest]:
         return list(self._pull_requests)
@@ -77,6 +78,9 @@ class MockRepository(Repository):
 
     def create_worktree(self, branch: Branch, path: str) -> None:
         self.created_worktrees.append((branch, path))
+
+    def get_default_branch(self) -> str:
+        return self._default_branch
 
     def get_working_dir(self) -> str:
         if self._working_dir is None:
