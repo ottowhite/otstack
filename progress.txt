@@ -138,3 +138,17 @@
   - The commit step occurs after branch creation and worktree creation but before push, so commit failure error lists branch+worktree as already-created
   - `list.insert(2, "--no-verify")` places the flag after `git commit` but before `--allow-empty`
 ---
+
+## 2026-03-07 - US-010
+- What was implemented: Added partial failure recovery guidance to `below()` and `above()`. Both methods now track completed mutation steps in a `completed_steps: list[tuple[str, str]]` list. On any exception after mutations start, a recovery message is printed to output listing each step with its undo command (e.g. `git branch -D <name>`, `git worktree remove <path>`, `git push origin --delete <name>`). Removed redundant "already created" text from push/commit ValueError messages since recovery now handles it.
+- Files changed:
+  - `src/otstack/OtStackClient.py` - Added `_print_recovery_message()` helper, refactored `below()` and `above()` mutation phases to track steps in try/except, removed "already created" from error messages
+  - `test/otstack/helpers/MockRepository.py` - Added `_raise_on_create_pr: bool` field to simulate PR creation failures
+  - `test/otstack/test_below.py` - Updated `test_push_failure_lists_created_artifacts` → `test_push_failure_prints_recovery_message`, `test_commit_failure_lists_created_artifacts` → `test_commit_failure_prints_recovery_message` to check printed output instead of error message. Added `TestBelowRecovery` class with push failure and PR creation failure recovery tests. Added `raise_on_create_pr` param to `_make_repo`.
+  - `test/otstack/test_above.py` - Same changes as test_below.py but for above()
+- **Learnings for future iterations:**
+  - Use `completed_steps: list[tuple[str, str]]` where tuple is `(description, undo_command)` - empty string for undo_cmd means no undo needed
+  - Wrapping the entire mutation phase in try/except catches both specific re-raised ValueErrors (commit/push) and unexpected exceptions (PR creation, retarget)
+  - `MockRepository._raise_on_create_pr` flag causes `create_pr()` to raise `RuntimeError` for testing PR creation failure recovery
+  - Recovery message is printed to `self._output`, not included in the exception message - test with `io.StringIO()` passed to `_make_client(output=...)`
+---
