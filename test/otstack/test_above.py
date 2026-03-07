@@ -614,6 +614,128 @@ class TestAbove:
             )
 
 
+class TestAbovePushFailure:
+    def test_push_failure_raises_value_error(self, tmp_path) -> None:
+        """above() raises ValueError with clear message on push failure."""
+        current_branch = MockBranch(name="feature-a")
+        pr = _make_pr(
+            source_branch="feature-a",
+            destination_branch="main",
+        )
+        repo = _make_repo(
+            current_branch=current_branch,
+            pull_requests=[pr],
+        )
+        command_runner = TrackingCommandRunner(
+            raise_called_process_error_for=["push"],
+        )
+        client = _make_client(
+            repos=[repo], command_runner=command_runner
+        )
+        worktree_path = str(tmp_path / "new-worktree")
+
+        with pytest.raises(ValueError, match="Failed to push"):
+            client.above(
+                repo=repo,
+                new_branch_name="feature-b",
+                pr_title="Feature B",
+                worktree_path=worktree_path,
+            )
+
+    def test_push_failure_includes_branch_name(
+        self, tmp_path
+    ) -> None:
+        """Push failure error includes the branch name."""
+        current_branch = MockBranch(name="feature-a")
+        pr = _make_pr(
+            source_branch="feature-a",
+            destination_branch="main",
+        )
+        repo = _make_repo(
+            current_branch=current_branch,
+            pull_requests=[pr],
+        )
+        command_runner = TrackingCommandRunner(
+            raise_called_process_error_for=["push"],
+        )
+        client = _make_client(
+            repos=[repo], command_runner=command_runner
+        )
+        worktree_path = str(tmp_path / "new-worktree")
+
+        with pytest.raises(ValueError, match="'feature-b'"):
+            client.above(
+                repo=repo,
+                new_branch_name="feature-b",
+                pr_title="Feature B",
+                worktree_path=worktree_path,
+            )
+
+    def test_push_failure_suggests_connectivity_check(
+        self, tmp_path
+    ) -> None:
+        """Push failure error suggests checking connectivity."""
+        current_branch = MockBranch(name="feature-a")
+        pr = _make_pr(
+            source_branch="feature-a",
+            destination_branch="main",
+        )
+        repo = _make_repo(
+            current_branch=current_branch,
+            pull_requests=[pr],
+        )
+        command_runner = TrackingCommandRunner(
+            raise_called_process_error_for=["push"],
+        )
+        client = _make_client(
+            repos=[repo], command_runner=command_runner
+        )
+        worktree_path = str(tmp_path / "new-worktree")
+
+        with pytest.raises(
+            ValueError, match="network connectivity"
+        ):
+            client.above(
+                repo=repo,
+                new_branch_name="feature-b",
+                pr_title="Feature B",
+                worktree_path=worktree_path,
+            )
+
+    def test_push_failure_lists_created_artifacts(
+        self, tmp_path
+    ) -> None:
+        """Push failure error lists already-created branch and worktree."""
+        current_branch = MockBranch(name="feature-a")
+        pr = _make_pr(
+            source_branch="feature-a",
+            destination_branch="main",
+        )
+        repo = _make_repo(
+            current_branch=current_branch,
+            pull_requests=[pr],
+        )
+        command_runner = TrackingCommandRunner(
+            raise_called_process_error_for=["push"],
+        )
+        client = _make_client(
+            repos=[repo], command_runner=command_runner
+        )
+        worktree_path = str(tmp_path / "new-worktree")
+
+        with pytest.raises(ValueError) as exc_info:
+            client.above(
+                repo=repo,
+                new_branch_name="feature-b",
+                pr_title="Feature B",
+                worktree_path=worktree_path,
+            )
+
+        msg = str(exc_info.value)
+        assert "Branch: feature-b" in msg
+        assert f"Worktree: {worktree_path}" in msg
+
+
 class TestAboveDirenv:
     def test_runs_direnv_allow_in_worktree_when_flag_is_set(self, tmp_path) -> None:
         """above() runs 'direnv allow' in the new worktree when run_direnv=True."""

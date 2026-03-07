@@ -77,6 +77,7 @@
   - To track kwargs passed to mocked `questionary.text()`, use `defaults: dict[str, str]` and capture `kwargs["default"]` in the side_effect
   - Can't mock `otstack.main.os.path.exists` because main.py doesn't import `os` directly - the `os.path.exists` check is in OtStackClient
 - Interactive mode `questionary.confirm()` calls: draft prompt comes before direnv/copy/dry-run prompts. Order matters for test mocks using `side_effect`.
+- `TrackingCommandRunner` has `raise_called_process_error_for` field to simulate `subprocess.CalledProcessError` for specific subcommands (matches any element in `command` list)
 ---
 
 ## 2026-03-07 - US-006
@@ -109,4 +110,17 @@
 - **Learnings for future iterations:**
   - Adding a new `questionary.confirm()` prompt changes the order of calls in test mocks that use `side_effect` - ensure existing tests' `fake_confirm` handles the additional call
   - `draft: bool = False` as a dataclass default means it's backwards-compatible with existing callers
+---
+
+## 2026-03-07 - US-008
+- What was implemented: Catch `subprocess.CalledProcessError` from git push in `below()` and `above()`, re-raise as `ValueError` with clear message including branch name, connectivity/auth suggestion, and list of already-created artifacts (branch, worktree).
+- Files changed:
+  - `src/otstack/OtStackClient.py` - Wrapped push calls in try/except for `subprocess.CalledProcessError`, raise `ValueError` with descriptive message
+  - `test/otstack/helpers/TrackingCommandRunner.py` - Added `raise_called_process_error_for` field to simulate `CalledProcessError` for specific subcommands
+  - `test/otstack/test_below.py` - Added `TestBelowPushFailure` class with 4 tests: raises ValueError, includes branch name, suggests connectivity check, lists created artifacts
+  - `test/otstack/test_above.py` - Added `TestAbovePushFailure` class with 4 tests: same coverage as below
+- **Learnings for future iterations:**
+  - `TrackingCommandRunner.raise_called_process_error_for` matches any element in the command list (e.g., "push" matches `["git", "push", "-u", "origin", "branch"]`)
+  - `subprocess.CalledProcessError` is already imported in `OtStackClient.py` via `import subprocess` at the top
+  - The push step occurs after branch creation and worktree creation, so the error message can list both as already-created artifacts
 ---

@@ -544,9 +544,20 @@ class OtStackClient:
         )
 
         # Push new branch from worktree
-        self._command_runner.run(
-            ["git", "push", "-u", "origin", new_branch_name], cwd=worktree_path
-        )
+        try:
+            self._command_runner.run(
+                ["git", "push", "-u", "origin", new_branch_name],
+                cwd=worktree_path,
+            )
+        except subprocess.CalledProcessError:
+            raise ValueError(
+                f"Failed to push branch '{new_branch_name}'. "
+                "Check your network connectivity and "
+                "authentication.\n"
+                "The following were already created:\n"
+                f"  - Branch: {new_branch_name}\n"
+                f"  - Worktree: {worktree_path}"
+            )
 
         # Create PR from new branch to original destination
         new_pr = repo.create_pr(
@@ -682,10 +693,20 @@ class OtStackClient:
         )
 
         # Push new branch from worktree
-        self._command_runner.run(
-            ["git", "push", "-u", "origin", new_branch_name],
-            cwd=worktree_path,
-        )
+        try:
+            self._command_runner.run(
+                ["git", "push", "-u", "origin", new_branch_name],
+                cwd=worktree_path,
+            )
+        except subprocess.CalledProcessError:
+            raise ValueError(
+                f"Failed to push branch '{new_branch_name}'. "
+                "Check your network connectivity and "
+                "authentication.\n"
+                "The following were already created:\n"
+                f"  - Branch: {new_branch_name}\n"
+                f"  - Worktree: {worktree_path}"
+            )
 
         # Create PR from new branch to current branch (key difference from below)
         new_pr = repo.create_pr(
