@@ -179,3 +179,18 @@
   - Interactive mode PR creation check happens after repo is obtained (inside the `try` block) since it needs access to the repo object
   - `questionary.confirm()` can be used directly in main.py (not just InteractivePrompter) for one-off prompts
 ---
+
+## 2026-03-07 - US-012
+- What was implemented: Integration tests for `below` using real local git repos. Created `IntegrationTestRepository` helper that uses real GitPython `Repo` for all git operations (branch, worktree, commit) but mocks GitHub PR operations (create_pr, get_open_pull_requests). Two journey test classes cover simple stack and mid-stack scenarios.
+- Files changed:
+  - `test/otstack/helpers/IntegrationTestRepository.py` - New helper: hybrid Repository using real git + mock PRs. Delegates create_branch, create_worktree, get_current_branch, has_uncommitted_changes, get_branches, get_remote_branches, get_working_dir to real `git.Repo`. Mocks create_pr and get_open_pull_requests with configurable data.
+  - `test/otstack/test_integration_below.py` - New test file with 12 tests across 2 journey classes:
+    - `TestBelowSimpleStack` (7 tests): feature -> main, insert below. Verifies: new branch exists, worktree exists, worktree on correct branch, PR created with correct src/dest, original PR retargeted, new branch pushed to remote, returns BelowResult.
+    - `TestBelowMidStack` (5 tests): feature-b -> feature-a, insert below. Verifies: new branch created from destination (has a.txt, not b.txt), PR targets feature-a, original PR retargeted, new branch exists, worktree on correct branch.
+- **Learnings for future iterations:**
+  - Integration tests use `_init_repo_with_remote()` to create a bare repo + clone with main branch and origin remote. This makes `git fetch`, `git push`, and `origin/*` refs all work.
+  - `SubprocessCommandRunner` is used (not TrackingCommandRunner) since we want real git commands to execute against the bare remote.
+  - `IntegrationTestRepository` is similar to `PyGitHubRepository` but replaces GitHub API calls with mock data. The `created_prs` list tracks PR creation calls.
+  - Git config (user.name, user.email) must be set on the test repo for `git commit` to work.
+  - Mid-stack test verifies branch content (a.txt exists, b.txt doesn't) to confirm the new branch was created from the correct base (origin/feature-a, not origin/main).
+---
