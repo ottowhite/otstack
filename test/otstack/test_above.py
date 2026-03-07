@@ -1028,6 +1028,60 @@ class TestAboveDefaultBranch:
         src, dest, _, _ = repo.created_prs[0]
         assert dest.name == "develop"
 
+    def test_dry_run_on_default_branch_shows_simplified(
+        self,
+    ) -> None:
+        """Dry-run on default branch shows simplified plan."""
+        current_branch = MockBranch(name="main")
+        repo = _make_repo(
+            current_branch=current_branch,
+            pull_requests=[],
+        )
+        client = _make_client(repos=[repo])
+
+        result = client.above(
+            repo=repo,
+            new_branch_name="feature-a",
+            pr_title="Feature A",
+            worktree_path="/tmp/new-worktree",
+            dry_run=True,
+        )
+
+        assert isinstance(result, AboveDryRunResult)
+        output = result.format_output()
+        assert "PR: (none)" in output
+        assert "Create branch 'feature-a'" in output
+        assert "Create worktree" in output
+        assert "Push 'feature-a' to origin" in output
+        assert (
+            "Create PR: 'feature-a' -> 'main'" in output
+        )
+        # Should NOT mention creating initial PR
+        assert "Push 'main' to origin" not in output
+        assert "create_initial" not in output.lower()
+
+    def test_dry_run_on_default_branch_no_initial_pr(
+        self,
+    ) -> None:
+        """Dry-run on default branch has no initial PR."""
+        current_branch = MockBranch(name="main")
+        repo = _make_repo(
+            current_branch=current_branch,
+            pull_requests=[],
+        )
+        client = _make_client(repos=[repo])
+
+        result = client.above(
+            repo=repo,
+            new_branch_name="feature-a",
+            pr_title="Feature A",
+            worktree_path="/tmp/new-worktree",
+            dry_run=True,
+        )
+
+        assert isinstance(result, AboveDryRunResult)
+        assert result.create_initial_pr is False
+
 
 class TestAbovePushFailure:
     def test_push_failure_raises_value_error(self, tmp_path) -> None:

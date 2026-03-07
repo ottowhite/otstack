@@ -1368,6 +1368,65 @@ class TestBelowDefaultBranch:
         src, dest, _, _ = repo.created_prs[0]
         assert dest.name == "develop"
 
+    def test_dry_run_on_default_branch_shows_simplified(
+        self,
+    ) -> None:
+        """Dry-run on default branch shows simplified plan."""
+        from otstack.BelowDryRunResult import BelowDryRunResult
+
+        current_branch = MockBranch(name="main")
+        repo = _make_repo(
+            current_branch=current_branch,
+            pull_requests=[],
+        )
+        client = _make_client(repos=[repo])
+
+        result = client.below(
+            repo=repo,
+            new_branch_name="feature-a",
+            pr_title="Feature A",
+            worktree_path="/tmp/new-worktree",
+            dry_run=True,
+        )
+
+        assert isinstance(result, BelowDryRunResult)
+        output = result.format_output()
+        assert "PR: (none)" in output
+        assert "Create branch 'feature-a'" in output
+        assert "Create worktree" in output
+        assert "Push 'feature-a' to origin" in output
+        assert (
+            "Create PR: 'feature-a' -> 'main'" in output
+        )
+        # No initial PR creation
+        assert "Push 'main' to origin" not in output
+        # No retargeting
+        assert "Retarget" not in output
+
+    def test_dry_run_on_default_branch_no_initial_pr(
+        self,
+    ) -> None:
+        """Dry-run on default branch has no initial PR."""
+        from otstack.BelowDryRunResult import BelowDryRunResult
+
+        current_branch = MockBranch(name="main")
+        repo = _make_repo(
+            current_branch=current_branch,
+            pull_requests=[],
+        )
+        client = _make_client(repos=[repo])
+
+        result = client.below(
+            repo=repo,
+            new_branch_name="feature-a",
+            pr_title="Feature A",
+            worktree_path="/tmp/new-worktree",
+            dry_run=True,
+        )
+
+        assert isinstance(result, BelowDryRunResult)
+        assert result.create_initial_pr is False
+
 
 class TestBelowPushFailure:
     def test_push_failure_raises_value_error(self, tmp_path) -> None:

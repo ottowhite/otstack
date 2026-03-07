@@ -99,12 +99,14 @@ class BelowDryRunResult:
             f"'{self.original_destination_name}'"
             f" with title \"{self.pr_title}\""
         )
-        step += 1
-        lines.append(
-            f"  {step}. Retarget PR:"
-            f" '{self.current_branch_name}' -> "
-            f"'{self.new_branch_name}'"
-            f" (was -> '{self.original_destination_name}')"
-        )
+        if self.current_pr is not None:
+            step += 1
+            lines.append(
+                f"  {step}. Retarget PR:"
+                f" '{self.current_branch_name}' -> "
+                f"'{self.new_branch_name}'"
+                f" (was ->"
+                f" '{self.original_destination_name}')"
+            )
 
         return "\n".join(lines)
