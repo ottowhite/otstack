@@ -497,94 +497,133 @@ class OtStackClient:
                 draft=draft,
             )
 
-        # Fetch latest remote state for the destination branch
-        working_dir = repo.get_working_dir()
-        self._command_runner.run(
-            ["git", "fetch", "origin", original_destination.name],
-            cwd=working_dir,
-        )
+        completed_steps: list[tuple[str, str]] = []
+        try:
+            # Fetch latest remote state for the destination branch
+            working_dir = repo.get_working_dir()
+            self._command_runner.run(
+                ["git", "fetch", "origin", original_destination.name],
+                cwd=working_dir,
+            )
 
-        # Create new branch from the fetched remote ref
-        origin_ref = SimpleBranch(name=f"origin/{original_destination.name}")
-        new_branch = repo.create_branch(new_branch_name, origin_ref)
+            # Create new branch from the fetched remote ref
+            origin_ref = SimpleBranch(
+                name=f"origin/{original_destination.name}"
+            )
+            new_branch = repo.create_branch(
+                new_branch_name, origin_ref
+            )
+            completed_steps.append((
+                f"Created branch '{new_branch_name}'",
+                f"git branch -D {new_branch_name}",
+            ))
 
-        # Create worktree for the new branch
-        repo.create_worktree(new_branch, worktree_path)
+            # Create worktree for the new branch
+            repo.create_worktree(new_branch, worktree_path)
+            completed_steps.append((
+                f"Created worktree at '{worktree_path}'",
+                f"git worktree remove {worktree_path}",
+            ))
 
-        # Copy files first (before direnv, which may need them like .env)
-        if copy_files:
-            current_working_dir = repo.get_working_dir()
-            for file_path in copy_files:
-                src = Path(current_working_dir) / file_path
-                dst = Path(worktree_path) / file_path
-                if src.exists():
-                    dst.parent.mkdir(parents=True, exist_ok=True)
-                    shutil.copy2(src, dst)
-                else:
-                    raise ValueError(f"Cannot copy '{file_path}': file does not exist.")
+            # Copy files first (before direnv, which may need them)
+            if copy_files:
+                current_working_dir = repo.get_working_dir()
+                for file_path in copy_files:
+                    src = Path(current_working_dir) / file_path
+                    dst = Path(worktree_path) / file_path
+                    if src.exists():
+                        dst.parent.mkdir(
+                            parents=True, exist_ok=True
+                        )
+                        shutil.copy2(src, dst)
+                    else:
+                        raise ValueError(
+                            f"Cannot copy '{file_path}': "
+                            "file does not exist."
+                        )
 
-        # Run direnv allow before commit (so pre-commit hooks have proper environment)
-        if run_direnv:
+            # Run direnv allow before commit
+            if run_direnv:
+                try:
+                    self._command_runner.run(
+                        ["direnv", "allow"], cwd=worktree_path
+                    )
+                except FileNotFoundError:
+                    self._output.write(
+                        "Warning: 'direnv' command not found."
+                        " Skipping direnv allow.\n"
+                    )
+
+            # Create empty commit in worktree
+            commit_cmd = [
+                "git",
+                "commit",
+                "--allow-empty",
+                "-m",
+                f"chore: initialize {new_branch_name}",
+            ]
+            if no_verify:
+                commit_cmd.insert(2, "--no-verify")
             try:
-                self._command_runner.run(["direnv", "allow"], cwd=worktree_path)
-            except FileNotFoundError:
-                self._output.write(
-                    "Warning: 'direnv' command not found. Skipping direnv allow.\n"
+                self._command_runner.run(
+                    commit_cmd, cwd=worktree_path
+                )
+            except subprocess.CalledProcessError:
+                raise ValueError(
+                    "Pre-commit hooks rejected the "
+                    "initialization commit on branch "
+                    f"'{new_branch_name}'.\n"
+                    "Check the hook output above for "
+                    "details.\n"
+                    "You can retry with --no-verify to "
+                    "skip hooks."
                 )
 
-        # Create empty commit in worktree so GitHub allows creating a PR
-        commit_cmd = [
-            "git",
-            "commit",
-            "--allow-empty",
-            "-m",
-            f"chore: initialize {new_branch_name}",
-        ]
-        if no_verify:
-            commit_cmd.insert(2, "--no-verify")
-        try:
-            self._command_runner.run(commit_cmd, cwd=worktree_path)
-        except subprocess.CalledProcessError:
-            raise ValueError(
-                "Pre-commit hooks rejected the initialization "
-                f"commit on branch '{new_branch_name}'.\n"
-                "Check the hook output above for details.\n"
-                "You can retry with --no-verify to skip hooks.\n"
-                "The following were already created:\n"
-                f"  - Branch: {new_branch_name}\n"
-                f"  - Worktree: {worktree_path}"
+            # Push new branch from worktree
+            try:
+                self._command_runner.run(
+                    [
+                        "git",
+                        "push",
+                        "-u",
+                        "origin",
+                        new_branch_name,
+                    ],
+                    cwd=worktree_path,
+                )
+            except subprocess.CalledProcessError:
+                raise ValueError(
+                    f"Failed to push branch "
+                    f"'{new_branch_name}'. "
+                    "Check your network connectivity "
+                    "and authentication."
+                )
+            completed_steps.append((
+                f"Pushed '{new_branch_name}' to origin",
+                f"git push origin --delete {new_branch_name}",
+            ))
+
+            # Create PR from new branch to original destination
+            new_pr = repo.create_pr(
+                new_branch,
+                original_destination,
+                pr_title,
+                draft=draft,
             )
 
-        # Push new branch from worktree
-        try:
-            self._command_runner.run(
-                ["git", "push", "-u", "origin", new_branch_name],
-                cwd=worktree_path,
+            # Retarget original PR to new branch
+            current_pr.change_destination(new_branch)
+
+            return BelowResult(
+                new_branch=new_branch,
+                new_pr=new_pr,
+                original_pr=current_pr,
+                worktree_path=worktree_path,
             )
-        except subprocess.CalledProcessError:
-            raise ValueError(
-                f"Failed to push branch '{new_branch_name}'. "
-                "Check your network connectivity and "
-                "authentication.\n"
-                "The following were already created:\n"
-                f"  - Branch: {new_branch_name}\n"
-                f"  - Worktree: {worktree_path}"
-            )
-
-        # Create PR from new branch to original destination
-        new_pr = repo.create_pr(
-            new_branch, original_destination, pr_title, draft=draft
-        )
-
-        # Retarget original PR to new branch
-        current_pr.change_destination(new_branch)
-
-        return BelowResult(
-            new_branch=new_branch,
-            new_pr=new_pr,
-            original_pr=current_pr,
-            worktree_path=worktree_path,
-        )
+        except Exception:
+            if completed_steps:
+                self._print_recovery_message(completed_steps)
+            raise
 
     def above(
         self,
@@ -664,87 +703,142 @@ class OtStackClient:
                 draft=draft,
             )
 
-        # Create new branch from current branch (key difference from below)
-        new_branch = repo.create_branch(new_branch_name, current_branch)
+        completed_steps: list[tuple[str, str]] = []
+        try:
+            # Create new branch from current branch
+            new_branch = repo.create_branch(
+                new_branch_name, current_branch
+            )
+            completed_steps.append((
+                f"Created branch '{new_branch_name}'",
+                f"git branch -D {new_branch_name}",
+            ))
 
-        # Create worktree for the new branch
-        repo.create_worktree(new_branch, worktree_path)
+            # Create worktree for the new branch
+            repo.create_worktree(new_branch, worktree_path)
+            completed_steps.append((
+                f"Created worktree at '{worktree_path}'",
+                f"git worktree remove {worktree_path}",
+            ))
 
-        # Copy files first (before direnv, which may need them like .env)
-        if copy_files:
-            current_working_dir = repo.get_working_dir()
-            for file_path in copy_files:
-                src = Path(current_working_dir) / file_path
-                dst = Path(worktree_path) / file_path
-                if src.exists():
-                    dst.parent.mkdir(parents=True, exist_ok=True)
-                    shutil.copy2(src, dst)
-                else:
-                    raise ValueError(
-                        f"Cannot copy '{file_path}': file does not exist."
+            # Copy files first (before direnv, which may need them)
+            if copy_files:
+                current_working_dir = repo.get_working_dir()
+                for file_path in copy_files:
+                    src = Path(current_working_dir) / file_path
+                    dst = Path(worktree_path) / file_path
+                    if src.exists():
+                        dst.parent.mkdir(
+                            parents=True, exist_ok=True
+                        )
+                        shutil.copy2(src, dst)
+                    else:
+                        raise ValueError(
+                            f"Cannot copy '{file_path}': "
+                            "file does not exist."
+                        )
+
+            # Run direnv allow before commit
+            if run_direnv:
+                try:
+                    self._command_runner.run(
+                        ["direnv", "allow"], cwd=worktree_path
+                    )
+                except FileNotFoundError:
+                    self._output.write(
+                        "Warning: 'direnv' command not found."
+                        " Skipping direnv allow.\n"
                     )
 
-        # Run direnv allow before commit (so pre-commit hooks have proper environment)
-        if run_direnv:
+            # Create empty commit in worktree
+            commit_cmd = [
+                "git",
+                "commit",
+                "--allow-empty",
+                "-m",
+                f"chore: initialize {new_branch_name}",
+            ]
+            if no_verify:
+                commit_cmd.insert(2, "--no-verify")
             try:
-                self._command_runner.run(["direnv", "allow"], cwd=worktree_path)
-            except FileNotFoundError:
-                self._output.write(
-                    "Warning: 'direnv' command not found. Skipping direnv allow.\n"
+                self._command_runner.run(
+                    commit_cmd, cwd=worktree_path
+                )
+            except subprocess.CalledProcessError:
+                raise ValueError(
+                    "Pre-commit hooks rejected the "
+                    "initialization commit on branch "
+                    f"'{new_branch_name}'.\n"
+                    "Check the hook output above for "
+                    "details.\n"
+                    "You can retry with --no-verify to "
+                    "skip hooks."
                 )
 
-        # Create empty commit in worktree so GitHub allows creating a PR
-        commit_cmd = [
-            "git",
-            "commit",
-            "--allow-empty",
-            "-m",
-            f"chore: initialize {new_branch_name}",
-        ]
-        if no_verify:
-            commit_cmd.insert(2, "--no-verify")
-        try:
-            self._command_runner.run(commit_cmd, cwd=worktree_path)
-        except subprocess.CalledProcessError:
-            raise ValueError(
-                "Pre-commit hooks rejected the initialization "
-                f"commit on branch '{new_branch_name}'.\n"
-                "Check the hook output above for details.\n"
-                "You can retry with --no-verify to skip hooks.\n"
-                "The following were already created:\n"
-                f"  - Branch: {new_branch_name}\n"
-                f"  - Worktree: {worktree_path}"
+            # Push new branch from worktree
+            try:
+                self._command_runner.run(
+                    [
+                        "git",
+                        "push",
+                        "-u",
+                        "origin",
+                        new_branch_name,
+                    ],
+                    cwd=worktree_path,
+                )
+            except subprocess.CalledProcessError:
+                raise ValueError(
+                    f"Failed to push branch "
+                    f"'{new_branch_name}'. "
+                    "Check your network connectivity "
+                    "and authentication."
+                )
+            completed_steps.append((
+                f"Pushed '{new_branch_name}' to origin",
+                f"git push origin --delete {new_branch_name}",
+            ))
+
+            # Create PR from new branch to current branch
+            new_pr = repo.create_pr(
+                new_branch,
+                current_branch,
+                pr_title,
+                draft=draft,
             )
 
-        # Push new branch from worktree
-        try:
-            self._command_runner.run(
-                ["git", "push", "-u", "origin", new_branch_name],
-                cwd=worktree_path,
+            return AboveResult(
+                new_branch=new_branch,
+                new_pr=new_pr,
+                current_pr=current_pr,
+                worktree_path=worktree_path,
             )
-        except subprocess.CalledProcessError:
-            raise ValueError(
-                f"Failed to push branch '{new_branch_name}'. "
-                "Check your network connectivity and "
-                "authentication.\n"
-                "The following were already created:\n"
-                f"  - Branch: {new_branch_name}\n"
-                f"  - Worktree: {worktree_path}"
-            )
+        except Exception:
+            if completed_steps:
+                self._print_recovery_message(completed_steps)
+            raise
 
-        # Create PR from new branch to current branch (key difference from below)
-        new_pr = repo.create_pr(
-            new_branch, current_branch, pr_title, draft=draft
+    def _print_recovery_message(
+        self,
+        completed_steps: list[tuple[str, str]],
+    ) -> None:
+        """Print recovery guidance listing completed steps and undo commands."""
+        self._output.write(
+            "\nRecovery: the following steps were "
+            "completed before the failure:\n"
         )
-
-        # Note: No retargeting needed for above() - the new PR targets current branch
-
-        return AboveResult(
-            new_branch=new_branch,
-            new_pr=new_pr,
-            current_pr=current_pr,
-            worktree_path=worktree_path,
-        )
+        for i, (description, undo_cmd) in enumerate(
+            completed_steps, start=1
+        ):
+            if undo_cmd:
+                self._output.write(
+                    f"  {i}. {description}\n"
+                    f"     undo: {undo_cmd}\n"
+                )
+            else:
+                self._output.write(
+                    f"  {i}. {description}\n"
+                )
 
     @property
     def github(self) -> GitHubClient:

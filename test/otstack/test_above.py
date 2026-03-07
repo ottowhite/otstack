@@ -702,10 +702,10 @@ class TestAbovePushFailure:
                 worktree_path=worktree_path,
             )
 
-    def test_push_failure_lists_created_artifacts(
+    def test_push_failure_prints_recovery_message(
         self, tmp_path
     ) -> None:
-        """Push failure error lists already-created branch and worktree."""
+        """Push failure prints recovery with undo commands."""
         current_branch = MockBranch(name="feature-a")
         pr = _make_pr(
             source_branch="feature-a",
@@ -718,12 +718,15 @@ class TestAbovePushFailure:
         command_runner = TrackingCommandRunner(
             raise_called_process_error_for=["push"],
         )
+        output = io.StringIO()
         client = _make_client(
-            repos=[repo], command_runner=command_runner
+            repos=[repo],
+            command_runner=command_runner,
+            output=output,
         )
         worktree_path = str(tmp_path / "new-worktree")
 
-        with pytest.raises(ValueError) as exc_info:
+        with pytest.raises(ValueError):
             client.above(
                 repo=repo,
                 new_branch_name="feature-b",
@@ -731,9 +734,12 @@ class TestAbovePushFailure:
                 worktree_path=worktree_path,
             )
 
-        msg = str(exc_info.value)
-        assert "Branch: feature-b" in msg
-        assert f"Worktree: {worktree_path}" in msg
+        printed = output.getvalue()
+        assert "git branch -D feature-b" in printed
+        assert (
+            f"git worktree remove {worktree_path}"
+            in printed
+        )
 
 
 class TestAboveCommitFailure:
@@ -826,10 +832,10 @@ class TestAboveCommitFailure:
                 worktree_path=worktree_path,
             )
 
-    def test_commit_failure_lists_created_artifacts(
+    def test_commit_failure_prints_recovery_message(
         self, tmp_path
     ) -> None:
-        """Commit failure lists already-created artifacts."""
+        """Commit failure prints recovery with undo commands."""
         current_branch = MockBranch(name="feature-a")
         pr = _make_pr(
             source_branch="feature-a",
@@ -842,12 +848,15 @@ class TestAboveCommitFailure:
         command_runner = TrackingCommandRunner(
             raise_called_process_error_for=["commit"],
         )
+        output = io.StringIO()
         client = _make_client(
-            repos=[repo], command_runner=command_runner
+            repos=[repo],
+            command_runner=command_runner,
+            output=output,
         )
         worktree_path = str(tmp_path / "new-worktree")
 
-        with pytest.raises(ValueError) as exc_info:
+        with pytest.raises(ValueError):
             client.above(
                 repo=repo,
                 new_branch_name="feature-b",
@@ -855,9 +864,12 @@ class TestAboveCommitFailure:
                 worktree_path=worktree_path,
             )
 
-        msg = str(exc_info.value)
-        assert "Branch: feature-b" in msg
-        assert f"Worktree: {worktree_path}" in msg
+        printed = output.getvalue()
+        assert "git branch -D feature-b" in printed
+        assert (
+            f"git worktree remove {worktree_path}"
+            in printed
+        )
 
     def test_no_verify_passes_flag_to_git_commit(
         self, tmp_path
@@ -928,6 +940,91 @@ class TestAboveCommitFailure:
         ]
         assert len(commit_cmds) == 1
         assert "--no-verify" not in commit_cmds[0]
+
+
+class TestAboveRecovery:
+    def test_push_failure_recovery_lists_undo_commands(
+        self, tmp_path
+    ) -> None:
+        """Push failure recovery lists branch and worktree undo."""
+        current_branch = MockBranch(name="feature-a")
+        pr = _make_pr(
+            source_branch="feature-a",
+            destination_branch="main",
+        )
+        repo = _make_repo(
+            current_branch=current_branch,
+            pull_requests=[pr],
+        )
+        command_runner = TrackingCommandRunner(
+            raise_called_process_error_for=["push"],
+        )
+        output = io.StringIO()
+        client = _make_client(
+            repos=[repo],
+            command_runner=command_runner,
+            output=output,
+        )
+        worktree_path = str(tmp_path / "new-worktree")
+
+        with pytest.raises(ValueError):
+            client.above(
+                repo=repo,
+                new_branch_name="feature-b",
+                pr_title="Feature B",
+                worktree_path=worktree_path,
+            )
+
+        printed = output.getvalue()
+        assert "Recovery:" in printed
+        assert "git branch -D feature-b" in printed
+        assert (
+            f"git worktree remove {worktree_path}"
+            in printed
+        )
+
+    def test_pr_creation_failure_recovery_includes_push(
+        self, tmp_path
+    ) -> None:
+        """PR creation failure recovery includes push undo."""
+        current_branch = MockBranch(name="feature-a")
+        pr = _make_pr(
+            source_branch="feature-a",
+            destination_branch="main",
+        )
+        repo = _make_repo(
+            current_branch=current_branch,
+            pull_requests=[pr],
+            raise_on_create_pr=True,
+        )
+        command_runner = TrackingCommandRunner()
+        output = io.StringIO()
+        client = _make_client(
+            repos=[repo],
+            command_runner=command_runner,
+            output=output,
+        )
+        worktree_path = str(tmp_path / "new-worktree")
+
+        with pytest.raises(RuntimeError):
+            client.above(
+                repo=repo,
+                new_branch_name="feature-b",
+                pr_title="Feature B",
+                worktree_path=worktree_path,
+            )
+
+        printed = output.getvalue()
+        assert "Recovery:" in printed
+        assert "git branch -D feature-b" in printed
+        assert (
+            f"git worktree remove {worktree_path}"
+            in printed
+        )
+        assert (
+            "git push origin --delete feature-b"
+            in printed
+        )
 
 
 class TestAboveDirenv:
@@ -1190,6 +1287,7 @@ def _make_repo(
     remote_branches: list[str] | None = None,
     working_dir: str | None = None,
     name: str = "test-repo",
+    raise_on_create_pr: bool = False,
 ) -> MockRepository:
     """Create a MockRepository with configurable current branch."""
     prs: list[MockPullRequest] = pull_requests or []
@@ -1207,6 +1305,7 @@ def _make_repo(
         _branches=branch_list,
         _remote_branches=remote_list,
         _working_dir=working_dir,
+        _raise_on_create_pr=raise_on_create_pr,
     )
 
 

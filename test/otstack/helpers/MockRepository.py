@@ -28,6 +28,7 @@ class MockRepository(Repository):
         default_factory=list
     )
     _working_dir: str | None = field(default=None)
+    _raise_on_create_pr: bool = field(default=False)
 
     def get_open_pull_requests(self) -> list[PullRequest]:
         return list(self._pull_requests)
@@ -39,6 +40,8 @@ class MockRepository(Repository):
         title: str,
         draft: bool = False,
     ) -> PullRequest:
+        if self._raise_on_create_pr:
+            raise RuntimeError("GitHub API error: create PR failed")
         self.created_prs.append(
             (source_branch, destination_branch, title, draft)
         )
