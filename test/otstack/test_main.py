@@ -9,6 +9,7 @@ from .helpers.MockGitHubClient import MockGitHubClient
 from .helpers.MockGitRepoDetector import MockGitRepoDetector
 from .helpers.MockPullRequest import MockPullRequest
 from .helpers.MockRepository import MockRepository
+from .helpers.TrackingCommandRunner import TrackingCommandRunner
 
 
 class TestSyncCommand:
@@ -137,7 +138,9 @@ class _MockOtStackClientContext:
         from otstack.OtStackClient import OtStackClient
 
         self._client = OtStackClient(
-            github_client=github_client, repo_detector=repo_detector
+            github_client=github_client,
+            repo_detector=repo_detector,
+            command_runner=TrackingCommandRunner(),
         )
 
     def __enter__(self):

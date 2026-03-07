@@ -78,17 +78,18 @@ class OtStackClient:
 
             self._github_client = PyGitHubClient(token)
 
-        self._repo_detector = repo_detector or GitPythonRepoDetector()
+        self._repo_detector = repo_detector
         self._command_runner = command_runner or SubprocessCommandRunner()
 
-    def detect_repo_name(self) -> str | None:
+    def detect_repo_name(self, local_path: str = ".") -> str | None:
         """
         Detect the GitHub repository name from the current git directory.
 
         Returns:
             Repository name in 'owner/repo' format, or None if not detectable.
         """
-        return self._repo_detector.get_repo_name()
+        detector = self._repo_detector or GitPythonRepoDetector(local_path)
+        return detector.get_repo_name()
 
     def detect_repo(self, local_path: str = ".") -> Repository | None:
         """
@@ -103,7 +104,7 @@ class OtStackClient:
         Returns:
             Repository with local git repo associated, or None if not detectable.
         """
-        detector = GitPythonRepoDetector(local_path)
+        detector = self._repo_detector or GitPythonRepoDetector(local_path)
         repo_name = detector.get_repo_name()
         if repo_name is None:
             return None

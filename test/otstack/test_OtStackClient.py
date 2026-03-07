@@ -1,4 +1,5 @@
 from io import StringIO
+from unittest.mock import patch
 
 from otstack.OtStackClient import OtStackClient
 from otstack.PullRequest import PullRequest
@@ -405,8 +406,8 @@ class TestSync:
         result = client.sync(repo)
 
         assert result is True
-        assert "Synced: feature-a" in output.getvalue()
-        assert "main" in output.getvalue()
+        assert "Merged and pushed." in output.getvalue()
+        assert "feature-a" in output.getvalue()
 
     def test_sync_returns_false_when_merge_conflicts(self) -> None:
         """sync() returns False when a merge would conflict."""
@@ -419,11 +420,13 @@ class TestSync:
         repo = _make_repo(pull_requests=[pr])
         client, output = _make_client_with_output(repos=[repo])
 
-        result = client.sync(repo)
+        # Mock subprocess.run to simulate user aborting the conflict resolution shell
+        with patch("otstack.OtStackClient.subprocess.run") as mock_run:
+            mock_run.return_value.returncode = 1
+            result = client.sync(repo)
 
         assert result is False
-        assert "Sync failed" in output.getvalue()
-        assert "conflicts" in output.getvalue()
+        assert "Merge conflict" in output.getvalue()
 
     def test_sync_skips_non_local_prs(self) -> None:
         """sync() skips PRs that are not local."""
