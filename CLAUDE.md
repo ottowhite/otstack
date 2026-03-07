@@ -113,6 +113,12 @@ When `--dry-run` is passed, the command performs all validation checks and then 
 - Current state (branch and PR info)
 - Numbered list of actions (create branch, worktree, push, create PR, copy files, run direnv)
 
+### Common below/above behavior
+
+**Default worktree path:** When `--worktree` is omitted and `--branch` is provided, the worktree path defaults to `../<repo-dir>-worktrees/<branch>` (e.g., for a repo at `/home/user/myproject` with branch `feature-x`, the worktree is `/home/user/myproject-worktrees/feature-x`). In interactive mode, this same default is offered as the prompt default.
+
+**Auto-recovery:** If `below` or `above` fails partway through execution, completed steps (branch creation, worktree creation, remote push) are automatically undone in reverse order. If an undo command itself fails, a WARNING is printed with the manual command as fallback.
+
 ## Nix Flake
 
 The project provides a Nix flake for installation via URL from other flakes.
