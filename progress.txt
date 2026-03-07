@@ -77,3 +77,18 @@
   - To track kwargs passed to mocked `questionary.text()`, use `defaults: dict[str, str]` and capture `kwargs["default"]` in the side_effect
   - Can't mock `otstack.main.os.path.exists` because main.py doesn't import `os` directly - the `os.path.exists` check is in OtStackClient
 ---
+
+## 2026-03-07 - US-006
+- What was implemented: Added `draft: bool = False` parameter to `Repository.create_pr` protocol, `PyGitHubRepository.create_pr`, and `MockRepository.create_pr`. PyGitHubRepository passes `draft=` to `self._gh_repo.create_pull()`.
+- Files changed:
+  - `src/otstack/Repository.py` - Added `draft: bool = False` parameter to `create_pr` protocol
+  - `src/otstack/PyGitHubRepository.py` - Added `draft` parameter and passes it to `create_pull()`
+  - `test/otstack/helpers/MockRepository.py` - Added `draft` parameter, updated `created_prs` type to 4-tuple
+  - `test/otstack/test_Repository.py` - Added `TestPyGitHubRepositoryCreatePrDraft` with 2 tests using MagicMock for `_gh_repo`
+  - `test/otstack/test_below.py` - Updated tuple unpacking for `created_prs` 4-tuple
+  - `test/otstack/test_above.py` - Updated tuple unpacking for `created_prs` 4-tuple
+- **Learnings for future iterations:**
+  - To test `PyGitHubRepository.create_pr` without a real GitHub connection, use `MagicMock()` for `_gh_repo` and set it after construction: `repo._gh_repo = gh_repo`
+  - PyGithub's `Repository.create_pull()` accepts a `draft` parameter natively
+  - When changing `created_prs` tuple size in MockRepository, update all test files that unpack the tuple
+---
